@@ -82,5 +82,22 @@ class Datahandler:
         self.maxTime=1
 		# self.subMat,self.maxTime=self.timeProcess(self.subMat)
         #print(self.subMat[0],self.subMat[-1])
+    
+    def timeProcess(self,trnMats):
+        mi = 1e16
+        ma = 0
+        for i in range(len(trnMats)):
+            minn = np.min(trnMats[i].data)
+            maxx = np.max(trnMats[i].data)
+            mi = min(mi, minn)
+            ma = max(ma, maxx)
+        maxTime = 0
+        for i in range(len(trnMats)):
+            newData = ((trnMats[i].data - mi) // (3600*24*args.slot)).astype(np.int32)
+            maxTime = max(np.max(newData), maxTime)
+            trnMats[i] = csr_matrix((newData, trnMats[i].indices, trnMats[i].indptr), shape=trnMats[i].shape)
+        print('MAX TIME',mi,ma, maxTime)
+        return trnMats, maxTime + 1
+    
 if __name__ == '__main__':
     Datahandler().LoadData()
