@@ -5,7 +5,7 @@ def parse_args():
 	parser.add_argument('--att_layer', default=4, type=int, help='layer number of multi att')
 	parser.add_argument('--att_size', default=12000, type=int, help='max size of multi att')
 	parser.add_argument('--batch', default=512, type=int, help='batch size')
-	parser.add_argument('--data', default='yelp', type=str, help='name of dataset')
+	parser.add_argument('--data', default='gowalla', type=str, help='name of dataset')
 	parser.add_argument('--decay', default=0.96, type=float, help='weight decay rate')
 	parser.add_argument('--deep_layer', default=0, type=int, help='number of deep layers to make the final prediction')
 	parser.add_argument('--divSize', default=10000, type=int, help='div size for smallTestEpoch')
