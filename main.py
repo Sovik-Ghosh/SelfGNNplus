@@ -14,7 +14,7 @@ import gc
 warnings.filterwarnings('ignore', category=FutureWarning)
 tf.config.experimental_run_functions_eagerly(True)
 
-tf.config.set_visible_devices([], 'GPU')
+#tf.config.set_visible_devices([], 'GPU')
 
 def enable_memory_growth():
     # Enable memory growth for all physical GPUs
@@ -27,7 +27,7 @@ if __name__ == '__main__':
     log('Start')
     
     # Enable memory growth
-    #enable_memory_growth()
+    enable_memory_growth()
     
     # Initialize the data handler and load data
     handler = DataHandler()

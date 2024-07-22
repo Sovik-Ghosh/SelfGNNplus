@@ -1,17 +1,16 @@
 import tensorflow as tf
-tf.config.run_functions_eagerly
 
-# Define a simple model
-model = tf.keras.Sequential([
-    tf.keras.layers.Dense(64, activation='relu'),
-    tf.keras.layers.Dense(10, activation='softmax')
-])
+# Create sample tensors
+float_tensor = tf.constant([1.0, 2.0, 3.0], dtype=tf.float32)
+int_tensor = tf.constant([1, 2, 3], dtype=tf.int32)
 
-# Compile the model
-model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+# Check data types
+print("Float Tensor dtype:", float_tensor.dtype)
+print("Int Tensor dtype:", int_tensor.dtype)
 
-# Access trainable variables
-trainable_vars = model.trainable_variables
-print(f"Trainable Variables:{trainable_vars}")
-for var in trainable_vars:
-    print(var.name, var.shape)
+# Example operation that requires integer tensor
+indices = tf.constant([0, 1, 2], dtype=tf.int32)
+values = tf.constant([10.0, 20.0, 30.0], dtype=tf.float32)
+result = tf.gather(values, indices)
+
+print("Gather result:", result)

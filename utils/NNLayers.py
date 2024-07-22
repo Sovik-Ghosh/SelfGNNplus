@@ -1,6 +1,5 @@
 import tensorflow as tf
-from tensorflow.keras.initializers import GlorotUniform
-from tensorflow.keras.layers import Layer
+from tensorflow.keras.layers import Layer, Dense, Dropout
 import numpy as np
 
 import warnings
@@ -8,206 +7,191 @@ import warnings
 # Suppress all warnings
 warnings.filterwarnings('ignore', category=FutureWarning)
 
-paramId = 0
-biasDefault = False
-params = {}
-regParams = {}
-ita = 0.2
-leaky = 0.1
+class ScaledDotProductAttention(Layer):
+    def __init__(self, d_k):
+        super(ScaledDotProductAttention, self).__init__()
+        self.d_k = d_k
 
-def getParamId():
-    global paramId
-    paramId += 1
-    return paramId
+    def call(self, Q, K, V, attn_mask=None):
+        scores = tf.matmul(Q, tf.transpose(K, perm=[0, 1, 3, 2])) / tf.sqrt(tf.cast(self.d_k, tf.float32))
+        scores = tf.nn.softmax(scores, axis=-1)
+        if attn_mask is not None:
+            scores *= attn_mask
+        attn = scores / (tf.reduce_sum(scores, axis=-1, keepdims=True) + 1e-8)
+        context = tf.matmul(attn, V)
+        return context, attn
 
-def setIta(ITA):
-    global ita
-    ita = ITA
+class AdditiveAttention(tf.keras.layers.Layer):
+    def __init__(self, query_vector_dim, candidate_vector_dim, **kwargs):
+        super(AdditiveAttention, self).__init__(**kwargs)
+        self.query_vector_dim = query_vector_dim
+        self.candidate_vector_dim = candidate_vector_dim
+        self.attention_query_vector = None  # To be initialized in build()
 
-def setBiasDefault(val):
-    global biasDefault
-    biasDefault = val
+    def build(self, input_shape):
+        # Initialize the attention query vector with the appropriate shape
+        self.attention_query_vector = self.add_weight(
+            shape=(self.query_vector_dim, 1),
+            initializer=tf.keras.initializers.RandomUniform(minval=-0.1, maxval=0.1),
+            trainable=True,
+            name='attention_query_vector'
+        )
+        super(AdditiveAttention, self).build(input_shape)
 
-def getParam(name):
-    return params[name]
+    def call(self, candidate_vector, training=False):
+        """
+        Args:
+            candidate_vector: Tensor with shape (batch_size, candidate_size, candidate_vector_dim)
+        Returns:
+            Tensor with shape (batch_size, candidate_vector_dim)
+        """
+        with tf.name_scope('additive_attention'):
+            # Apply a Dense layer to candidate_vector
+            dense = tf.keras.layers.Dense(self.query_vector_dim)(candidate_vector)
+            temp = tf.tanh(dense)
+            
+            # Compute attention weights
+            candidate_weights = tf.nn.softmax(
+                tf.squeeze(tf.matmul(temp, self.attention_query_vector), axis=2),
+                axis=1
+            )
+            
+            # Apply attention weights to candidate_vector to get the context vector
+            target = tf.squeeze(tf.matmul(tf.expand_dims(candidate_weights, 1), candidate_vector), 1)
+            return target
 
-def addReg(name, param):
-    global regParams
-    if name not in regParams:
-        regParams[name] = param
-    else:
-        print('ERROR: Parameter already exists')
+    def compute_output_shape(self, input_shape):
+        return (input_shape[0], self.candidate_vector_dim)
 
-def addParam(name, param):
-    global params
-    if name not in params:
-        params[name] = param
+    def get_config(self):
+        config = super(AdditiveAttention, self).get_config()
+        config.update({
+            'query_vector_dim': self.query_vector_dim,
+            'candidate_vector_dim': self.candidate_vector_dim
+        })
+        return config
 
-def defineRandomNameParam(shape, dtype=tf.float32, reg=False, initializer='xavier', trainable=True):
-    name = 'defaultParamName%d' % getParamId()
-    return defineParam(name, shape, dtype, reg, initializer, trainable)
+class MultiHeadSelfAttention(Layer):
+    def __init__(self, d_model, num_attention_heads):
+        super(MultiHeadSelfAttention, self).__init__()
+        self.d_model = d_model
+        self.num_attention_heads = num_attention_heads
+        assert d_model % num_attention_heads == 0
+        self.d_k = d_model // num_attention_heads
+        self.d_v = d_model // num_attention_heads
+        self.dense_q = Dense(d_model)
+        self.dense_k = Dense(d_model)
+        self.dense_v = Dense(d_model)
+        self.dense_o = Dense(d_model)
 
-def defineParam(name, shape, dtype=tf.float32, reg=False, initializer='xavier', trainable=True):
-    global params
-    global regParams
-    assert name not in params, 'name %s already exists' % name
-    if initializer == 'xavier':
-        initializer_fn = GlorotUniform()
-    elif initializer == 'trunc_normal':
-        initializer_fn = tf.random.truncated_normal_initializer(mean=0.0, stddev=0.03)
-    elif initializer == 'zeros':
-        initializer_fn = tf.zeros_initializer()
-    elif initializer == 'ones':
-        initializer_fn = tf.ones_initializer()
-    else:
-        print('ERROR: Unrecognized initializer')
-        exit()
+    def call(self, Q, K=None, V=None, mask=None):
+        if K is None:
+            K = Q
+        if V is None:
+            V = Q
 
-    ret = tf.Variable(initializer_fn(shape=shape, dtype=dtype), trainable=trainable, name=name)
-    
-    params[name] = ret
-    if reg:
-        regParams[name] = ret
-    return ret
+        batch_size = tf.shape(Q)[0]
+        Q = self.dense_q(Q)
+        K = self.dense_k(K)
+        V = self.dense_v(V)
 
-def getOrDefineParam(name, shape, dtype=tf.float32, reg=False, initializer='xavier', trainable=True, reuse=False):
-    global params
-    global regParams
-    if name in params:
-        assert reuse, 'Reusing Param %s Not Specified' % name
-        if reg and name not in regParams:
-            regParams[name] = params[name]
-        return params[name]
-    return defineParam(name, shape, dtype, reg, initializer, trainable)
+        Q = tf.reshape(Q, (batch_size, -1, self.num_attention_heads, self.d_k))
+        K = tf.reshape(K, (batch_size, -1, self.num_attention_heads, self.d_k))
+        V = tf.reshape(V, (batch_size, -1, self.num_attention_heads, self.d_v))
 
-def BN(inp, name=None):
-    global ita
-    dim = inp.shape[-1]
-    name = 'defaultParamName%d' % getParamId()
-    scale = tf.Variable(tf.ones([dim]), name=name + '_scale')
-    shift = tf.Variable(tf.zeros([dim]), name=name + '_shift')
-    mean, variance = tf.nn.moments(inp, axes=[0])
-    ret = tf.nn.batch_normalization(inp, mean, variance, shift, scale, 1e-8)
-    return ret
+        Q = tf.transpose(Q, perm=[0, 2, 1, 3])
+        K = tf.transpose(K, perm=[0, 2, 1, 3])
+        V = tf.transpose(V, perm=[0, 2, 1, 3])
 
+        context, attn = ScaledDotProductAttention(self.d_k)(Q, K, V, mask)
 
-def FC(inp, outDim, name=None, useBias=False, activation=None, reg=False, useBN=False, dropout=None, initializer='xavier', reuse=False, biasReg=False, biasInitializer='zeros'):
-    global params
-    global regParams
-    global leaky
-    inDim = inp.shape[-1]
-    temName = name if name != None else 'defaultParamName%d' % getParamId()
-    W = getOrDefineParam(temName, [inDim, outDim], reg=reg, initializer=initializer, reuse=reuse)
-    if dropout is not None:
-        ret = tf.nn.dropout(inp, rate=dropout) @ W
-    else:
-        ret = inp @ W
-    if useBias:
-        ret = Bias(ret, name=name, reuse=reuse, reg=biasReg, initializer=biasInitializer)
-    if useBN:
-        ret = BN(ret)
-    if activation is not None:
-        ret = Activate(ret, activation)
-    return ret
+        context = tf.transpose(context, perm=[0, 2, 1, 3])
+        context = tf.reshape(context, (batch_size, -1, self.num_attention_heads * self.d_v))
 
-def Bias(data, name=None, reg=False, reuse=False, initializer='zeros'):
-    inDim = data.shape[-1]
-    temName = name if name != None else 'defaultParamName%d' % getParamId()
-    temBiasName = temName + 'Bias'
-    bias = getOrDefineParam(temBiasName, [inDim], reg=False, initializer=initializer, reuse=reuse)
-    if reg:
-        regParams[temBiasName] = bias
-    return data + bias
+        return self.dense_o(context)
 
-def ActivateHelp(data, method):
-    if method == 'relu':
-        ret = tf.nn.relu(data)
-    elif method == 'sigmoid':
-        ret = tf.nn.sigmoid(data)
-    elif method == 'tanh':
-        ret = tf.nn.tanh(data)
-    elif method == 'softmax':
-        ret = tf.nn.softmax(data, axis=-1)
-    elif method == 'leakyRelu':
-        ret = tf.maximum(data, leaky * data)
-    elif method == 'twoWayLeakyRelu6':
-        temMask = tf.cast(tf.greater(data, 6.0), tf.float32)
-        ret = temMask * (6 + leaky * (data - 6)) + (1 - temMask) * tf.maximum(leaky * data, data)
-    elif method == '-1relu':
-        ret = tf.maximum(-1.0, data)
-    elif method == 'relu6':
-        ret = tf.maximum(0.0, tf.minimum(6.0, data))
-    elif method == 'relu3':
-        ret = tf.maximum(0.0, tf.minimum(3.0, data))
-    else:
-        raise Exception('Error Activation Function')
-    return ret
+class FeedForward(Layer):
+    def __init__(self, num_units, dropout_keep_prob=1.0):
+        super(FeedForward, self).__init__()
+        self.num_units = num_units
+        self.dense1 = Dense(num_units[0], activation=tf.nn.relu)
+        self.dense2 = Dense(num_units[1])
+        self.dropout = Dropout(1.0 - dropout_keep_prob)
 
-def Activate(data, method, useBN=False):
-    global leaky
-    if useBN:
-        ret = BN(data)
-    else:
-        ret = data
-    ret = ActivateHelp(ret, method)
-    return ret
+    def call(self, inputs):
+        outputs = self.dense1(inputs)
+        outputs = self.dropout(outputs)
+        outputs = self.dense2(outputs)
+        outputs = self.dropout(outputs)
+        outputs += inputs  # Residual connection
+        return outputs
 
-def Regularize(names=None, method='L2'):
-    ret = 0
-    if method == 'L1':
-        if names is not None:
-            for name in names:
-                ret += tf.reduce_sum(tf.abs(getParam(name)))
+class TransformerNet(tf.keras.layers.Layer):
+    def __init__(self, num_units, num_blocks, num_heads, maxlen, dropout_rate, pos_fixed, l2_reg=0.0):
+        super(TransformerNet, self).__init__()
+        self.num_units = num_units
+        self.num_blocks = num_blocks
+        self.num_heads = num_heads
+        self.maxlen = maxlen
+        self.dropout_keep_prob = 1. - dropout_rate
+        self.pos_fixed = pos_fixed
+        self.l2_reg = l2_reg
+        self.position_encoding_matrix = None
+        
+        self.attention_layers = [MultiHeadSelfAttention(num_units, num_heads) for _ in range(num_blocks)]
+        self.feedforward_layers = [FeedForward(num_units=[num_units, num_units], dropout_keep_prob=self.dropout_keep_prob) for _ in range(num_blocks)]
+        self.norm_layers = [tf.keras.layers.LayerNormalization() for _ in range(num_blocks * 2)]
+
+    def build(self, input_shape):
+        self.pos_embedding_table = self.add_weight(
+            name='pos_embedding_tnet', 
+            shape=[self.maxlen, self.num_units], 
+            dtype=tf.float32, 
+            regularizer=tf.keras.regularizers.l2(self.l2_reg),
+            initializer='glorot_uniform',
+            trainable = True
+        )
+        super(TransformerNet, self).build(input_shape)
+
+    def position_embedding(self, inputs):
+        # Use the pre-defined positional embedding table
+        outputs = tf.nn.embedding_lookup(self.pos_embedding_table, inputs)
+        return outputs
+
+    def get_position_encoding(self, inputs):
+        # If pos_fixed is True, use a predefined position encoding matrix
+        if self.position_encoding_matrix is None:
+            encoded_vec = np.array([pos / np.power(10000, 2 * i / self.num_units) for pos in range(self.maxlen) for i in range(self.num_units)])
+            encoded_vec[::2] = np.sin(encoded_vec[::2])
+            encoded_vec[1::2] = np.cos(encoded_vec[1::2])
+            encoded_vec = tf.convert_to_tensor(encoded_vec.reshape([self.maxlen, self.num_units]), dtype=tf.float32)
+            self.position_encoding_matrix = encoded_vec
+        
+        N = tf.shape(inputs)[0]
+        T = tf.shape(inputs)[1]
+        position_ind = tf.tile(tf.expand_dims(tf.range(T), 0), [N, 1])  # (batch_size, len)
+        position_encoding = tf.nn.embedding_lookup(self.position_encoding_matrix, position_ind)  # (batch_size, len, num_units)
+        return position_encoding
+
+    def call(self, inputs, training=False):
+        if self.pos_fixed:  # use sin/cos positional encoding
+            position_encoding = self.get_position_encoding(inputs)  # (batch_size, len, num_units)
         else:
-            for name in regParams:
-                ret += tf.reduce_sum(tf.abs(regParams[name]))
-    elif method == 'L2':
-        if names is not None:
-            for name in names:
-                ret += tf.reduce_sum(tf.square(getParam(name)))
-        else:
-            for name in regParams:
-                ret += tf.reduce_sum(tf.square(regParams[name]))
-    return ret
+            position_encoding = self.position_embedding(
+                tf.tile(tf.expand_dims(tf.range(tf.shape(inputs)[1]), 0), [tf.shape(inputs)[0], 1])
+            )
+        
+        inputs += position_encoding
 
-def Dropout(data, rate):
-    if rate is None:
-        return data
-    else:
-        return tf.nn.dropout(data, rate=rate)
+        for i in range(self.num_blocks):
+            inputs = self.norm_layers[2 * i](inputs, training=training)
+            inputs = self.attention_layers[i](inputs)
+            inputs = self.norm_layers[2 * i + 1](inputs, training=training)
+            inputs = self.feedforward_layers[i](inputs, training=training)
 
-def selfAttention(localReps, number, inpDim, numHeads):
-    Q = defineRandomNameParam([inpDim, inpDim], reg=True)
-    K = defineRandomNameParam([inpDim, inpDim], reg=True)
-    V = defineRandomNameParam([inpDim, inpDim], reg=True)
-    rspReps = tf.reshape(tf.stack(localReps, axis=1), [-1, inpDim])
-    q = tf.reshape(rspReps @ Q, [-1, number, 1, numHeads, inpDim//numHeads])
-    k = tf.reshape(rspReps @ K, [-1, 1, number, numHeads, inpDim//numHeads])
-    v = tf.reshape(rspReps @ V, [-1, 1, number, numHeads, inpDim//numHeads])
-    att = tf.nn.softmax(tf.reduce_sum(q * k, axis=-1, keepdims=True) / tf.sqrt(inpDim/numHeads), axis=2)
-    attval = tf.reshape(tf.reduce_sum(att * v, axis=2), [-1, number, inpDim])
-    rets = [None] * number
-    paramId = 'dfltP%d' % getParamId()
-    for i in range(number):
-        tem1 = tf.reshape(tf.slice(attval, [0, i, 0], [-1, 1, -1]), [-1, inpDim])
-        rets[i] = tem1 + localReps[i]
-    return rets
+        outputs = self.norm_layers[-1](inputs, training=training)
+        return outputs
 
-def lightSelfAttention(localReps, number, inpDim, numHeads):
-    Q = defineRandomNameParam([inpDim, inpDim], reg=True)
-    rspReps = tf.reshape(tf.stack(localReps, axis=1), [-1, inpDim])
-    tem = rspReps @ Q
-    q = tf.reshape(tem, [-1, number, 1, numHeads, inpDim//numHeads])
-    k = tf.reshape(tem, [-1, 1, number, numHeads, inpDim//numHeads])
-    v = tf.reshape(rspReps, [-1, 1, number, numHeads, inpDim//numHeads])
-    att = tf.nn.softmax(tf.reduce_sum(q * k, axis=-1, keepdims=True) / tf.sqrt(inpDim/numHeads), axis=2)
-    attval = tf.reshape(tf.reduce_sum(att * v, axis=2), [-1, number, inpDim])
-    rets = [None] * number
-    paramId = 'dfltP%d' % getParamId()
-    for i in range(number):
-        tem1 = tf.reshape(tf.slice(attval, [0, i, 0], [-1, 1, -1]), [-1, inpDim])
-        rets[i] = tem1 + localReps[i]
-    return rets
 
 class LSTMNet(tf.keras.layers.Layer):
     def __init__(self, layers=1, hidden_units=100, hidden_activation="tanh", dropout=0.5):
@@ -234,60 +218,79 @@ class LSTMNet(tf.keras.layers.Layer):
         outputs = self.rnn(inputs, training=training)
         return outputs
 
-class TemporalConvNet(object):
-    def __init__(self, num_channels, stride=1, kernel_size=2, dropout=0.2):
+class TemporalConvNet(tf.keras.layers.Layer):
+    def __init__(self, num_channels, stride=1, kernel_size=2, dropout=0.2, **kwargs):
+        super(TemporalConvNet, self).__init__(**kwargs)
         self.kernel_size = kernel_size
         self.stride = stride
         self.num_levels = len(num_channels)
         self.num_channels = num_channels
         self.dropout = dropout
     
-    def __call__(self, inputs, mask):
-        inputs_shape = inputs.shape
-        outputs = [inputs]
+    def build(self, input_shape):
+        # Build convolutional layers here
+        self.convs = []
+        self.dropout_layers = []
+        self.residual_convs = []
+
         for i in range(self.num_levels):
             dilation_size = 2 ** i
-            in_channels = inputs_shape[-1] if i == 0 else self.num_channels[i-1]
+            in_channels = input_shape[-1] if i == 0 else self.num_channels[i-1]
             out_channels = self.num_channels[i]
-            output = self._TemporalBlock(outputs[-1], in_channels, out_channels, self.kernel_size, 
-                                    self.stride, dilation=dilation_size, padding=(self.kernel_size-1)*dilation_size, 
-                                    dropout=self.dropout, level=i)
-            outputs.append(output)
-
-        return outputs[-1]
-
-    def _TemporalBlock(self, value, n_inputs, n_outputs, kernel_size, stride, dilation, padding, dropout=0.2, level=0):
-        padded_value1 = tf.pad(value, [[0,0], [padding,0], [0,0]])
-        self.conv1 = tf.keras.layers.Conv1D(filters=n_outputs,
-                                            kernel_size=kernel_size,
-                                            strides=stride,
-                                            padding='valid',
-                                            dilation_rate=dilation,
-                                            activation=None,
-                                            kernel_initializer=tf.random_normal_initializer(0, 0.01),
-                                            bias_initializer=tf.zeros_initializer(),
-                                            name='layer'+str(level)+'_conv1')(padded_value1)
-        self.output1 = tf.nn.dropout(tf.nn.relu(self.conv1), rate=dropout)
-
-        padded_value2 = tf.pad(self.output1, [[0,0], [padding,0], [0,0]])
-        self.conv2 = tf.keras.layers.Conv1D(filters=n_outputs,
-                                            kernel_size=kernel_size,
-                                            strides=stride,
-                                            padding='valid',
-                                            dilation_rate=dilation,
-                                            activation=None,
-                                            kernel_initializer=tf.random_normal_initializer(0, 0.01),
-                                            bias_initializer=tf.zeros_initializer(),
-                                            name='layer'+str(level)+'_conv2')(padded_value2)
-        self.output2 = tf.nn.dropout(tf.nn.relu(self.conv2), rate=dropout)
-
-        if n_inputs != n_outputs:
-            res_x = tf.keras.layers.Conv1D(filters=n_outputs,
-                                           kernel_size=1,
+            
+            conv1 = tf.keras.layers.Conv1D(filters=out_channels,
+                                           kernel_size=self.kernel_size,
+                                           strides=self.stride,
+                                           padding='valid',
+                                           dilation_rate=dilation_size,
                                            activation=None,
-                                           kernel_initializer=tf.random_normal_initializer(0, 0.01),
-                                           bias_initializer=tf.zeros_initializer(),
-                                           name='layer'+str(level)+'_conv')(value)
-        else:
-            res_x = value
-        return tf.nn.relu(res_x + self.output2)
+                                           name='layer{}_conv1'.format(i))
+            
+            conv2 = tf.keras.layers.Conv1D(filters=out_channels,
+                                           kernel_size=self.kernel_size,
+                                           strides=self.stride,
+                                           padding='valid',
+                                           dilation_rate=dilation_size,
+                                           activation=None,
+                                           name='layer{}_conv2'.format(i))
+            
+            dropout_layer = tf.keras.layers.Dropout(rate=self.dropout)
+            self.convs.append((conv1, conv2))
+            self.dropout_layers.append(dropout_layer)
+            
+            if in_channels != out_channels:
+                res_conv = tf.keras.layers.Conv1D(filters=out_channels,
+                                                  kernel_size=1,
+                                                  activation=None,
+                                                  name='layer{}_conv'.format(i))
+                self.residual_convs.append(res_conv)
+            else:
+                self.residual_convs.append(None)
+    
+    def call(self, inputs, training=False):
+        x = inputs
+        for i in range(self.num_levels):
+            conv1, conv2 = self.convs[i]
+            dropout_layer = self.dropout_layers[i]
+            res_conv = self.residual_convs[i]
+
+            # Apply first convolution
+            x = tf.pad(x, [[0,0], [(self.kernel_size-1)*(2**i), 0], [0, 0]])
+            x = conv1(x)
+            x = dropout_layer(tf.nn.relu(x), training=training)
+
+            # Apply second convolution
+            x = tf.pad(x, [[0,0], [(self.kernel_size-1)*(2**i), 0], [0, 0]])
+            x = conv2(x)
+            x = dropout_layer(tf.nn.relu(x), training=training)
+
+            # Apply residual connection
+            if res_conv is not None:
+                res_x = res_conv(inputs)
+            else:
+                res_x = inputs
+
+            x = tf.nn.relu(res_x + x)
+            inputs = x  # Update inputs for the next layer
+        
+        return x

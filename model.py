@@ -1,9 +1,7 @@
 import tensorflow as tf
 from Params import args
 from tensorflow.keras.layers import LayerNormalization
-from utils.attention import MultiHeadSelfAttention
-from DataHandler import DataHandler
-from utils.NNLayers import Activate, LSTMNet
+from utils.NNLayers import LSTMNet, TemporalConvNet, TransformerNet, MultiHeadSelfAttention
 
 
 class Model(tf.keras.Model):
@@ -33,6 +31,10 @@ class Model(tf.keras.Model):
         
         self.lstm0 = LSTMNet(hidden_units=self.latdim, dropout = 1 - self.keep_rate)
         self.lstm1 = LSTMNet(hidden_units=self.latdim, dropout = 1 - self.keep_rate)
+        self.tcn0 = TemporalConvNet([self.latdim, self.latdim], stride=1, kernel_size=3, dropout=self.dropout)
+        self.tcn1 = TemporalConvNet([self.latdim, self.latdim], stride=1, kernel_size=3, dropout=self.dropout)
+        self.tnet0 = TransformerNet(num_units=args.latdim, num_blocks=3, num_heads=self.num_heads, maxlen=args.pos_length, dropout_rate=self.dropout, pos_fixed=False, l2_reg=args.reg)
+        self.tnet1 = TransformerNet(num_units=args.latdim, num_blocks=3, num_heads=self.num_heads, maxlen=args.pos_length, dropout_rate=self.dropout, pos_fixed=False, l2_reg=args.reg)
         self.multihead_self_attention0 = MultiHeadSelfAttention(self.latdim, self.num_heads)
         self.multihead_self_attention1 = MultiHeadSelfAttention(self.latdim, self.num_heads)
         self.multihead_self_attention_sequence = [MultiHeadSelfAttention(self.latdim, self.num_heads) for _ in range(args.att_layer)]
@@ -114,7 +116,7 @@ class Model(tf.keras.Model):
         final_user_vector = tf.reduce_mean(multihead_user_vector, axis=1)
         final_item_vector = tf.reduce_mean(multihead_item_vector, axis=1)
         
-        sequence_batch = self.layer_norma2(tf.matmul(tf.expand_dims(inputs['mask'], axis=1), tf.nn.embedding_lookup(final_item_vector, inputs['sequence'])))
+        sequence_batch = self.layer_norma2(tf.matmul(tf.expand_dims(inputs['mask'], axis=1), tf.nn.embedding_lookup(final_item_vector, tf.cast(inputs['sequence'], tf.int32))))
         sequence_batch += self.layer_norma3(tf.matmul(tf.expand_dims(inputs['mask'], axis=1), tf.nn.embedding_lookup(self.position_embedding, pos)))
         att_layer = sequence_batch
         
@@ -124,11 +126,11 @@ class Model(tf.keras.Model):
         
         att_user = tf.reduce_sum(att_layer, axis=1)
 
-        pckUlat = tf.nn.embedding_lookup(final_user_vector, inputs['uids'])
-        pckIlat = tf.nn.embedding_lookup(final_item_vector, inputs['iids'])
+        pckUlat = tf.nn.embedding_lookup(final_user_vector, tf.cast(inputs['uids'], tf.int32))
+        pckIlat = tf.nn.embedding_lookup(final_item_vector, tf.cast(inputs['iids'], tf.int32))
         
         preds = tf.reduce_sum(pckUlat * pckIlat, axis=-1)
-        preds += tf.reduce_sum(self._activate(tf.nn.embedding_lookup(att_user, inputs['uLocs_seq'])) * pckIlat, axis=-1)
+        preds += tf.reduce_sum(self._activate(tf.nn.embedding_lookup(att_user, tf.cast(inputs['uLocs_seq'], tf.int32))) * pckIlat, axis=-1)
         user_weight = []
         preds_one = []
 
@@ -143,9 +145,9 @@ class Model(tf.keras.Model):
         
         for i in range(args.graphNum):
             sampNum = tf.shape(inputs[f'suids{i}'])[0] // 2
-            pckUlat = tf.nn.embedding_lookup(final_user_vector, inputs[f'suids{i}'])
-            pckIlat = tf.nn.embedding_lookup(final_item_vector, inputs[f'siids{i}'])
-            pckUweight = tf.nn.embedding_lookup(user_weight[i], inputs[f'suids{i}'])
+            pckUlat = tf.nn.embedding_lookup(final_user_vector, tf.cast(inputs[f'suids{i}'], tf.int32))
+            pckIlat = tf.nn.embedding_lookup(final_item_vector, tf.cast(inputs[f'siids{i}'], tf.int32))
+            pckUweight = tf.nn.embedding_lookup(user_weight[i], tf.cast(inputs[f'suids{i}'], tf.int32))
             
             S_final = tf.reduce_sum(self._activate(pckUlat * pckIlat), axis=-1)
             posPred_final = tf.stop_gradient(tf.slice(S_final, [0], [sampNum]))
@@ -154,8 +156,8 @@ class Model(tf.keras.Model):
             negweight_final = tf.slice(pckUweight, [sampNum], [-1])
             S_final = posweight_final * posPred_final - negweight_final * negPred_final
             
-            pckUlat = tf.nn.embedding_lookup(user_vector[i], inputs[f'suids{i}'])
-            pckIlat = tf.nn.embedding_lookup(item_vector[i], inputs[f'siids{i}'])
+            pckUlat = tf.nn.embedding_lookup(user_vector[i], tf.cast(inputs[f'suids{i}'], tf.int32))
+            pckIlat = tf.nn.embedding_lookup(item_vector[i], tf.cast(inputs[f'siids{i}'], tf.int32))
             preds_one = tf.reduce_sum(self._activate(pckUlat * pckIlat), axis=-1)
             posPred = tf.slice(preds_one, [0], [sampNum])
             negPred = tf.slice(preds_one, [sampNum], [-1])

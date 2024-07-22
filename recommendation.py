@@ -11,16 +11,11 @@ from site import USER_BASE
 from matplotlib.cbook import silent_list
 from Params import args
 import utils.NNLayers as NNs
-from utils.NNLayers import Regularize
 import tensorflow as tf
 import pickle
-import utils.TimeLogger as logger
-from utils.util import *
 import numpy as np
 from utils.TimeLogger import log
 from DataHandler import negSamp, transpose, transToLsts
-import scipy.sparse as sp
-from random import randint
 from model import Model
 
 class Recommender:
@@ -33,17 +28,6 @@ class Recommender:
         for met in mets:
             self.metrics['Train' + met] = list()
             self.metrics['Test' + met] = list()
-
-    def makePrint(self, name, ep, reses, save):
-        ret = 'Epoch %d/%d, %s: ' % (ep, args.epoch, name)
-        for metric in reses:
-            val = reses[metric]
-            ret += '%s = %.4f, ' % (metric, val)
-            tem = name + metric
-            if save and tem in self.metrics:
-                self.metrics[tem].append(val)
-        ret = ret[:-2] + '  '
-        return ret
 
     def run(self):
         self.prepareModel()
@@ -69,7 +53,7 @@ class Recommender:
                 print(self.makePrint('Test', ep, reses, test))
 
             if ep % args.tstEpoch == 0 and reses['NDCG'] > maxndcg:
-                self.saveHistory()
+                #self.saveHistory()
                 maxndcg = reses['NDCG']
                 maxres = reses
                 maxepoch = ep
@@ -80,18 +64,7 @@ class Recommender:
         log(self.makePrint('Test', args.epoch, reses, True))
         log(self.makePrint('max', maxepoch, maxres, True))
 
-    def loss_fn(self, uids, preds, sslloss):
-        sampNum = tf.shape(uids)[0] // 2
-        posPred = tf.slice(preds, [0], [sampNum])
-        negPred = tf.slice(preds, [sampNum], [-1])
-        preLoss = tf.reduce_mean(tf.maximum(0.0, 1.0 - (posPred - negPred)))
-        regLoss = args.reg * self.compute_reg() + args.ssl_reg * sslloss
-        loss = preLoss + regLoss
-        return loss, preLoss, regLoss
-
-    
     def prepareModel(self):
-        NNs.leaky = args.leaky
         
         subAdj = []
         subTpAdj = []
@@ -110,10 +83,19 @@ class Recommender:
         self.maxTime = self.handler.maxTime
 
         self.model = Model(subAdj= subAdj, subTpAdj=subTpAdj)
-        
-
-
-
+        input_shapes = {
+            'uids': (None,),  # Shape for 'uids'
+            'iids': (None,),  # Shape for 'iids'
+            'sequence': (args.batch, args.pos_length),  # Shape for 'sequence'
+            'mask': (args.batch, args.pos_length),  # Shape for 'mask'
+            'uLocs_seq': (None,),  # Shape for 'uLocs_seq'
+            **{f'suids{k}': (None,) for k in range(5)},  # Shape for 'suids{k}'
+            **{f'siids{k}': (None,) for k in range(5)}  # Shape for 'siids{k}'
+        }
+        self.model.build(input_shape=input_shapes)
+        self.model.summary()
+        for var in self.model.trainable_variables:
+            print(f'{var.name}: Regularizer: {getattr(var, "regularizer", None)}')
 
     def sampleTrainBatch(self, batIds, labelMat, timeMat, train_sample_num):
         temTst = self.handler.tstInt[batIds]
@@ -222,27 +204,25 @@ class Recommender:
     
     def get_all_regularized_variables(self):
         regularized_vars = []
-
-        # Check model-level weights
-        for var in self.model.weights:
+        for var in self.model.trainable_variables:
             if hasattr(var, 'regularizer') and var.regularizer is not None:
                 regularized_vars.append(var)
-
-        # Check layer-level weights
-        for layer in self.model.layers:
-            for var in layer.weights:
-                if hasattr(var, 'regularizer') and var.regularizer is not None:
-                    regularized_vars.append(var)
-
         return regularized_vars
-    
 
+    # Function to compute the L2 regularization loss
     def compute_reg(self):
-        l2_loss = 0.0
-        for var in self.get_all_regularized_variables():
-            l2_loss += tf.reduce_sum(tf.square(var))
+        l2_loss = tf.add_n([tf.nn.l2_loss(v) for v in self.get_all_regularized_variables()])
         return l2_loss
-    
+
+    def loss_fn(self, uids, preds, sslloss):
+        sampNum = tf.shape(uids)[0] // 2
+        posPred = tf.slice(preds, [0], [sampNum])
+        negPred = tf.slice(preds, [sampNum], [-1])
+        preLoss = tf.reduce_mean(tf.maximum(0.0, 1.0 - (posPred - negPred)))
+        regLoss = args.reg * self.compute_reg() + args.ssl_reg * sslloss
+        loss = preLoss + regLoss
+        return loss, preLoss, regLoss
+
     @tf.function
     def train_step(self, inputs):
         with tf.GradientTape() as tape:
@@ -253,10 +233,6 @@ class Recommender:
         self.global_step.assign_add(1)
 
         return loss, preLoss, regLoss
-    
-    def reset_memory(self):
-        tf.keras.backend.clear_session()
-        gc.collect()
 
     def trainEpoch(self):
         num = args.user
@@ -471,3 +447,14 @@ class Recommender:
         else:
             self.metrics = {}
             log(f"History file '{history_path}' not found. Metrics initialized as empty.")
+
+    def makePrint(self, name, ep, reses, save):
+        ret = 'Epoch %d/%d, %s: ' % (ep, args.epoch, name)
+        for metric in reses:
+            val = reses[metric]
+            ret += '%s = %.4f, ' % (metric, val)
+            tem = name + metric
+            if save and tem in self.metrics:
+                self.metrics[tem].append(val)
+        ret = ret[:-2] + '  '
+        return ret
