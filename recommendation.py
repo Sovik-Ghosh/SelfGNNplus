@@ -1,20 +1,22 @@
 import warnings
 import os
 import gc
+import random
+from tabulate import tabulate
+from tqdm import tqdm
+
+
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # Suppress all warnings
 warnings.filterwarnings('ignore', category=FutureWarning)
 
-from ast import arg
-from curses import meta
-from site import USER_BASE
 from matplotlib.cbook import silent_list
 from Params import args
-import utils.NNLayers as NNs
 import tensorflow as tf
 import pickle
 import numpy as np
-from utils.TimeLogger import log
+from utils.TimeLogger import TrainingLogger
 from DataHandler import negSamp, transpose, transToLsts
 from model import Model
 
@@ -28,6 +30,7 @@ class Recommender:
         for met in mets:
             self.metrics['Train' + met] = list()
             self.metrics['Test' + met] = list()
+        self.log = TrainingLogger(os.getcwd()+args.log_dir, vars(args))
 
     def run(self):
         self.prepareModel()
@@ -43,17 +46,19 @@ class Recommender:
         maxres = {}
         maxepoch = 0
 
+        self.log.start_training()
+
         for ep in range(stloc, args.epoch):
             test = (ep % args.tstEpoch == 0)
             reses = self.trainEpoch()
-            print(self.makePrint('Train', ep, reses, test))
+            self.log.makePrint('Train', ep, reses, test, self.metrics)
             
             if test:
                 reses = self.testEpoch()
-                print(self.makePrint('Test', ep, reses, test))
+                self.log.makePrint('Test', ep, reses, test, self.metrics)
 
             if ep % args.tstEpoch == 0 and reses['NDCG'] > maxndcg:
-                #self.saveHistory()
+                self.saveHistory()
                 maxndcg = reses['NDCG']
                 maxres = reses
                 maxepoch = ep
@@ -61,8 +66,9 @@ class Recommender:
             print()
 
         reses = self.testEpoch()
-        log(self.makePrint('Test', args.epoch, reses, True))
-        log(self.makePrint('max', maxepoch, maxres, True))
+        self.log.makePrint('Test', args.epoch, reses, True, self.metrics)
+        self.log.makePrint('max', maxepoch, maxres, True, self.metrics)
+        self.log.print_summary(self.model)
 
     def prepareModel(self):
         
@@ -94,8 +100,6 @@ class Recommender:
         }
         self.model.build(input_shape=input_shapes)
         self.model.summary()
-        for var in self.model.trainable_variables:
-            print(f'{var.name}: Regularizer: {getattr(var, "regularizer", None)}')
 
     def sampleTrainBatch(self, batIds, labelMat, timeMat, train_sample_num):
         temTst = self.handler.tstInt[batIds]
@@ -120,7 +124,7 @@ class Recommender:
                 neglocs = [poslocs[0]]
             else:
                 poslocs = []
-                choose = 1
+                choose = random.randint(1,max(min(args.pred_num+1,len(posset)-3),1))
                 poslocs.extend([posset[-choose]] * sampNum)
                 neglocs = negSamp(temLabel[i], sampNum, args.item, [self.handler.sequence[batIds[i]][-1], temTst[i]], self.handler.item_with_pop)
 
@@ -192,16 +196,6 @@ class Recommender:
 
         return uLocs, iLocs, uLocs_seq
     
-    def print_trainable_parameters(self, model):
-        total_parameters = 0
-        for layer in model.layers:
-            for variable in layer.trainable_variables:
-                shape = variable.shape
-                variable_parameters = tf.reduce_prod(shape).numpy()
-                print(f'Variable: {variable.name}, Shape: {shape}, Total parameters: {variable_parameters}')
-                total_parameters += variable_parameters
-        print(f'Total trainable parameters: {total_parameters}')
-    
     def get_all_regularized_variables(self):
         regularized_vars = []
         for var in self.model.trainable_variables:
@@ -211,7 +205,7 @@ class Recommender:
 
     # Function to compute the L2 regularization loss
     def compute_reg(self):
-        l2_loss = tf.add_n([tf.nn.l2_loss(v) for v in self.get_all_regularized_variables()])
+        l2_loss = tf.add_n([tf.reduce_sum(tf.square(v)) for v in self.get_all_regularized_variables()])
         return l2_loss
 
     def loss_fn(self, uids, preds, sslloss):
@@ -243,7 +237,8 @@ class Recommender:
         steps = int(np.ceil(num / args.batch))
         
         for s in range(len(sample_num_list)):
-            for i in range(steps):
+            prog = tqdm(range(steps))
+            for i in prog:
                 st = i * args.batch
                 ed = min((i + 1) * args.batch, num)
                 batIds = sfIds[st: ed]
@@ -265,7 +260,7 @@ class Recommender:
 
                 epochLoss += loss
                 epochPreLoss += preLoss
-                log('Step %d/%d: preloss = %.2f, REGLoss = %.2f         ' % (i+s*steps, steps*len(sample_num_list), preLoss, regLoss), save=False, oneline=True)
+                prog.set_description('Step %d/%d: preloss = %.2f, REGLoss = %.2f         ' % (i+s*steps, steps*len(sample_num_list), preLoss, regLoss))
 
         ret = dict()
         ret['Loss'] = epochLoss / steps
@@ -327,17 +322,16 @@ class Recommender:
         return uLocs, iLocs, temTst, tstLocs, sequence, mask, uLocs_seq, val_list
     
     def testEpoch(self):
-        epochHit, epochNdcg = [0] * 2
-        epochHit5, epochNdcg5 = [0] * 2
-        epochHit20, epochNdcg20 = [0] * 2
-        epochHit1, epochNdcg1 = [0] * 2
-        epochHit15, epochNdcg15 = [0] * 2
+        self.cutoffs = [5, 10, 15, 20]
+        epochHit = {f'{i}': 0 for i in self.cutoffs}
+        epochNdcgs = {f'{i}': 0 for i in self.cutoffs}
         ids = self.handler.tstUsrs
         num = len(ids)
         tstBat = args.batch
         steps = int(np.ceil(num / tstBat))
+        prog = tqdm(range(steps))
           
-        for i in range(steps):
+        for i in prog:
             st = i * tstBat
             ed = min((i+1) * tstBat, num)
             batIds = ids[st: ed]
@@ -357,64 +351,45 @@ class Recommender:
 
             preds, ssloss = self.model(inputs)
 
-            if(args.uid!=-1):
-                print(preds[args.uid].numpy())
             if(args.test==True):
-                hit, ndcg, hit5, ndcg5, hit20, ndcg20,hit1, ndcg1,  hit15, ndcg15= self.calcRes(np.reshape(preds, [ed-st, args.testSize]), temTst, tstLocs)
+                result = self.calcRes(np.reshape(preds, [ed-st, args.testSize]), temTst, tstLocs)
             else:
-                hit, ndcg, hit5, ndcg5, hit20, ndcg20,hit1, ndcg1,  hit15, ndcg15= self.calcRes(np.reshape(preds, [ed-st, args.testSize]), val_list, tstLocs)
+                result = self.calcRes(np.reshape(preds, [ed-st, args.testSize]), val_list, tstLocs)
+            
 
-            epochHit += hit
-            epochNdcg += ndcg
-            epochHit5 += hit5
-            epochNdcg5 += ndcg5
-            epochHit20 += hit20
-            epochNdcg20 += ndcg20
-            epochHit15 += hit15
-            epochNdcg15 += ndcg15
-            epochHit1 += hit1
-            epochNdcg1 += ndcg1
+            for i in self.cutoffs:
+                epochHit[f'{i}'] += result[f'hit{i}']
+                epochNdcgs[f'{i}'] += result[f'ndcg{i}']
 
-            log('Steps %d/%d: hit10 = %d, ndcg10 = %d' % (i, steps, hit, ndcg), save=False, oneline=True)
+            prog.set_description('Steps %d/%d: hit%d = %d, ndcg%d = %d' % (i, steps, args.shoot, result[f'hit{args.shoot}'], args.shoot, result[f'ndcg{args.shoot}']))
 
         ret = dict()
-        ret['HR'] = epochHit / num
-        ret['NDCG'] = epochNdcg / num
-        print("epochNdcg1:{},epochHit1:{},epochNdcg5:{},epochHit5:{}".format(epochNdcg1/ num,epochHit1/ num,epochNdcg5/ num,epochHit5/ num))
-        print("epochNdcg15:{},epochHit15:{},epochNdcg20:{},epochHit20:{}".format(epochNdcg15/ num,epochHit15/ num,epochNdcg20/ num,epochHit20/ num))
+        ret['HR'] = epochHit[f'{args.shoot}'] / num
+        ret['NDCG'] = epochNdcgs[f'{args.shoot}'] / num
+        self.log.save_and_print_table(epochHit=epochHit, epochNdcgs=epochNdcgs, num=num)
         return ret
     
     def calcRes(self, preds, temTst, tstLocs):
-        hit = 0
-        ndcg = 0
-        hit1 = 0
-        ndcg1 = 0
-        hit5=0
-        ndcg5=0
-        hit20=0
-        ndcg20=0
-        hit15=0
-        ndcg15=0
+        hits = {cutoff: 0 for cutoff in self.cutoffs}
+        ndcgs = {cutoff: 0 for cutoff in self.cutoffs}
 
         for j in range(preds.shape[0]):
             predvals = list(zip(preds[j], tstLocs[j]))
             predvals.sort(key=lambda x: x[0], reverse=True)
-            shoot = list(map(lambda x: x[1], predvals[:args.shoot]))
+            for cutoff in self.cutoffs:
+                shoot = list(map(lambda x: x[1], predvals[:cutoff]))
 
-            if temTst[j] in shoot:
-                hit += 1
-                ndcg += np.reciprocal(np.log2(shoot.index(temTst[j])+2))
-            shoot = list(map(lambda x: x[1], predvals[:5]))
+                if temTst[j] in shoot:
+                    hits[cutoff] += 1
+                    ndcgs[cutoff] += np.reciprocal(np.log2(shoot.index(temTst[j]) + 2))
 
-            if temTst[j] in shoot:
-                hit5 += 1
-                ndcg5 += np.reciprocal(np.log2(shoot.index(temTst[j])+2))
-            shoot = list(map(lambda x: x[1], predvals[:20]))
+        # Prepare results to return
+        results = {}
+        for cutoff in self.cutoffs:
+            results[f'hit{cutoff}'] = hits[cutoff]
+            results[f'ndcg{cutoff}'] = ndcgs[cutoff]
 
-            if temTst[j] in shoot:
-                hit20 += 1
-                ndcg20 += np.reciprocal(np.log2(shoot.index(temTst[j])+2))	
-        return hit, ndcg, hit5, ndcg5, hit20, ndcg20, hit1, ndcg1, hit15, ndcg15
+        return results
     
     def saveHistory(self):
         if args.epoch == 0:
@@ -428,14 +403,14 @@ class Recommender:
         model_save_path = 'Models/' + args.save_path + '.keras'
         tf.keras.models.save_model(self.model, model_save_path)
         
-        log('Model Saved: %s' % model_save_path)
+        print('Model Saved: %s' % model_save_path)
         
     def loadModel(self):
         # Load the model
         model_path = 'Models/' + args.load_model + '.keras'
         if os.path.exists(model_path):
             loaded_model = tf.keras.models.load_model(model_path)
-            log('Model Loaded')
+            print('Model Loaded')
         else:
             raise FileNotFoundError(f"Model file '{model_path}' not found.")
 
@@ -446,15 +421,4 @@ class Recommender:
                 self.metrics = pickle.load(fs)
         else:
             self.metrics = {}
-            log(f"History file '{history_path}' not found. Metrics initialized as empty.")
-
-    def makePrint(self, name, ep, reses, save):
-        ret = 'Epoch %d/%d, %s: ' % (ep, args.epoch, name)
-        for metric in reses:
-            val = reses[metric]
-            ret += '%s = %.4f, ' % (metric, val)
-            tem = name + metric
-            if save and tem in self.metrics:
-                self.metrics[tem].append(val)
-        ret = ret[:-2] + '  '
-        return ret
+            print(f"History file '{history_path}' not found. Metrics initialized as empty.")

@@ -5,7 +5,6 @@ import tensorflow as tf
 import pickle
 import random
 from Params import args
-from utils.TimeLogger import log
 from DataHandler import negSamp, transpose, DataHandler, transToLsts
 from recommendation import Recommender
 import gc
@@ -24,15 +23,11 @@ def enable_memory_growth():
     print("Memory growth enabled for GPUs")
 
 if __name__ == '__main__':
-    log('Start')
-    
-    # Enable memory growth
     enable_memory_growth()
     
     # Initialize the data handler and load data
     handler = DataHandler()
     handler.LoadData()
-    log('Load Data')
     
     # Set seeds for reproducibility
     np.random.seed(100)

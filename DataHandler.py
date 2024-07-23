@@ -7,7 +7,6 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from Params import args
 import scipy.sparse as sp
-from utils.TimeLogger import log
 import os
 import random
 def transpose(mat):

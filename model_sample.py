@@ -1,7 +1,7 @@
 import tensorflow as tf
 from Params import args
 from tensorflow.keras.layers import LayerNormalization
-from utils.attention import MultiHeadSelfAttention
+from utils.NNLayers import MultiHeadSelfAttention
 from DataHandler import DataHandler
 from utils.NNLayers import Activate, LSTMNet
 
