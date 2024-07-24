@@ -1,0 +1,14 @@
+
+Epoch 0/150, Train: Loss = 10.2939, preLoss = 2.2980  
+
+Epoch 0/150, Train: Loss = 10.2997, preLoss = 2.2995  
+
+Epoch 0/150, Train: Loss = 10.3037, preLoss = 2.2995  
+
+Epoch 0/150, Train: Loss = 10.3122, preLoss = 2.2977  
+
+Epoch 0/150, Train: Loss = 10.3018, preLoss = 2.2961  
+
+Epoch 0/150, Train: Loss = 10.3368, preLoss = 2.2984  
+
+Epoch 0/150, Train: Loss = 10.3301, preLoss = 2.2991  

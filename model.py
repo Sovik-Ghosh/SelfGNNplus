@@ -106,9 +106,16 @@ class Model(tf.keras.Model):
         
         user_vector_tensor = tf.transpose(user_vector, perm=[1, 0, 2])
         item_vector_tensor = tf.transpose(item_vector, perm=[1, 0, 2])
-        
-        user_vector_tensor = self.lstm0(inputs=user_vector_tensor, training = training)
-        item_vector_tensor = self.lstm1(inputs=item_vector_tensor, training = training)
+
+        if args.model == 'lstm':
+            user_vector_tensor = self.lstm0(inputs=user_vector_tensor, training = training)
+            item_vector_tensor = self.lstm1(inputs=item_vector_tensor, training = training)
+        elif args.model == 'tcn':
+            user_vector_tensor = self.tcn0(inputs=user_vector_tensor, training = training)
+            item_vector_tensor = self.tcn1(inputs=item_vector_tensor, training = training)
+        else:
+            user_vector_tensor = self.tnet0(inputs=user_vector_tensor, training = training)
+            item_vector_tensor = self.tnet1(inputs=item_vector_tensor, training = training)
 
         multihead_user_vector = self.multihead_self_attention0(self.layer_norma0(user_vector_tensor))
         multihead_item_vector = self.multihead_self_attention1(self.layer_norma1(item_vector_tensor))

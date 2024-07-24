@@ -30,7 +30,7 @@ class Recommender:
         for met in mets:
             self.metrics['Train' + met] = list()
             self.metrics['Test' + met] = list()
-        self.log = TrainingLogger(os.getcwd()+args.log_dir, vars(args))
+        self.log = TrainingLogger(os.getcwd()+'/'+args.log_dir, vars(args))
 
     def run(self):
         self.prepareModel()
@@ -255,6 +255,7 @@ class Recommender:
                         **{f'suids{k}': tf.constant(suLocs[k]) for k in range(args.graphNum)},
                         **{f'siids{k}': tf.constant(siLocs[k]) for k in range(args.graphNum)}
                         }
+                
 
                 loss, preLoss, regLoss = self.train_step(inputs)
 
@@ -350,6 +351,7 @@ class Recommender:
                         }
 
             preds, ssloss = self.model(inputs)
+            print(num)
 
             if(args.test==True):
                 result = self.calcRes(np.reshape(preds, [ed-st, args.testSize]), temTst, tstLocs)
@@ -370,6 +372,7 @@ class Recommender:
         return ret
     
     def calcRes(self, preds, temTst, tstLocs):
+        print(temTst.shape)
         hits = {cutoff: 0 for cutoff in self.cutoffs}
         ndcgs = {cutoff: 0 for cutoff in self.cutoffs}
 

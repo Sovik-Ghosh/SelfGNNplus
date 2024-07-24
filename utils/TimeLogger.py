@@ -52,6 +52,10 @@ class TrainingLogger:
     def save_trainable_parameters_to_file(self, model):
         total_parameters = 0
         with open(os.path.join(self.log_dir, "parameters.txt"), 'w') as file:
+            for var in model.weights:
+                var_parameters = tf.reduce_prod(var.shape).numpy()
+                total_parameters += var_parameters
+                file.write(f'Variable: {var.name}, Shape: {var.shape}, Total parameters: {var_parameters}\n')
             for layer in model.layers:
                 for variable in layer.trainable_variables:
                     shape = variable.shape

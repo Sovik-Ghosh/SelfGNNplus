@@ -49,6 +49,7 @@ def parse_args():
 	parser.add_argument('--uid', default=0, type=int, help='show user score')
 	parser.add_argument('--num_attention_heads', type=int, default=16, help='number of num attention heads [default: 16]')
 	parser.add_argument('--log_dir', type=str, default='output', help='Directory to save results')
+	parser.add_argument('--model', type=str, default='lstm', help='Interval level sequential model')
 
 	return parser.parse_args()
 args = parse_args()
