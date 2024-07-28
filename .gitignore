@@ -3,3 +3,7 @@
 /env3.10
 
 *.pyc
+
+*.keras
+
+*.pkl

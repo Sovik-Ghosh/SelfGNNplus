@@ -1,6 +1,7 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Layer, Dense, Dropout
+from tensorflow.keras.layers import Layer, Dense, Dropout, LayerNormalization
 import numpy as np
+from Params import args
 
 import warnings
 
@@ -22,7 +23,7 @@ class ScaledDotProductAttention(Layer):
         return context, attn
 
 class AdditiveAttention(tf.keras.layers.Layer):
-    def __init__(self, query_vector_dim, candidate_vector_dim, **kwargs):
+    def __init__(self, query_vector_dim = args.query_vector_dim, candidate_vector_dim = args.latdim, **kwargs):
         super(AdditiveAttention, self).__init__(**kwargs)
         self.query_vector_dim = query_vector_dim
         self.candidate_vector_dim = candidate_vector_dim
@@ -31,7 +32,7 @@ class AdditiveAttention(tf.keras.layers.Layer):
     def build(self, input_shape):
         # Initialize the attention query vector with the appropriate shape
         self.attention_query_vector = self.add_weight(
-            shape=(self.query_vector_dim, 1),
+            shape=(self.query_vector_dim,),
             initializer=tf.keras.initializers.RandomUniform(minval=-0.1, maxval=0.1),
             trainable=True,
             name='attention_query_vector'
@@ -50,18 +51,19 @@ class AdditiveAttention(tf.keras.layers.Layer):
             dense = tf.keras.layers.Dense(self.query_vector_dim)(candidate_vector)
             temp = tf.tanh(dense)
             
-            # Compute attention weights
-            candidate_weights = tf.nn.softmax(
-                tf.squeeze(tf.matmul(temp, self.attention_query_vector), axis=2),
-                axis=1
-            )
+            # Compute attention scores
+            scores = tf.squeeze(tf.matmul(temp, tf.expand_dims(self.attention_query_vector, axis=-1)), axis=-1)
+            attention_weights = tf.nn.softmax(scores, axis=1)
+            
+            # Reshape attention_weights to match candidate_vector for element-wise multiplication
+            attention_weights = tf.expand_dims(attention_weights, axis=-1)  # Shape: (batch_size, candidate_size, 1)
             
             # Apply attention weights to candidate_vector to get the context vector
-            target = tf.squeeze(tf.matmul(tf.expand_dims(candidate_weights, 1), candidate_vector), 1)
-            return target
+            context_vector = tf.reduce_sum(attention_weights * candidate_vector, axis=1)
+            return context_vector
 
     def compute_output_shape(self, input_shape):
-        return (input_shape[0], self.candidate_vector_dim)
+        return (input_shape[0], self.query_vector_dim)
 
     def get_config(self):
         config = super(AdditiveAttention, self).get_config()
@@ -70,6 +72,7 @@ class AdditiveAttention(tf.keras.layers.Layer):
             'candidate_vector_dim': self.candidate_vector_dim
         })
         return config
+
 
 class MultiHeadSelfAttention(Layer):
     def __init__(self, d_model, num_attention_heads):
@@ -212,6 +215,31 @@ class LSTMNet(tf.keras.layers.Layer):
     def build(self, input_shape):
         # This method is where you create the LSTM cells and weights, if necessary
         self.cells = [tf.keras.layers.LSTMCell(self.hidden_units, activation=self.hidden_activation, dropout = self.dropout) for _ in range(self.layers)]
+        self.rnn = tf.keras.layers.RNN(tf.keras.layers.StackedRNNCells(self.cells), return_sequences=True)
+
+    def call(self, inputs, training=False):
+        outputs = self.rnn(inputs, training=training)
+        return outputs
+
+class GRUNet(tf.keras.layers.Layer):
+    def __init__(self, layers=1, hidden_units=100, hidden_activation="tanh", dropout=0.5):
+        super(GRUNet, self).__init__()
+        self.layers = layers
+        self.hidden_units = hidden_units
+        self.hidden_activation = self.get_activation_function(hidden_activation)
+        self.dropout = dropout
+
+    def get_activation_function(self, activation):
+        if activation == "tanh":
+            return tf.nn.tanh
+        elif activation == "relu":
+            return tf.nn.relu
+        else:
+            raise NotImplementedError(f"Activation function '{activation}' is not implemented")
+
+    def build(self, input_shape):
+        # This method is where you create the LSTM cells and weights, if necessary
+        self.cells = [tf.keras.layers.GRUCell(self.hidden_units, activation=self.hidden_activation, dropout = self.dropout) for _ in range(self.layers)]
         self.rnn = tf.keras.layers.RNN(tf.keras.layers.StackedRNNCells(self.cells), return_sequences=True)
 
     def call(self, inputs, training=False):

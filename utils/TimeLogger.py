@@ -1,6 +1,7 @@
 import time
 import json
 import os
+import csv
 from Params import args
 from tabulate import tabulate
 import numpy as np
@@ -26,28 +27,43 @@ class TrainingLogger:
         total_time = end_time - self.start_time
         return total_time
     
-    def save_and_print_table(self, epochNdcgs, epochHit, num, cutoffs = [5, 10, 15, 20]):
+    def save_and_print_table(self, ep, epochNdcgs, epochHit, num, cutoffs = [5, 10, 15, 20]):
+        csv_data = [{'Metric': i, 'HitRate': epochHit[f'{i}'] / num, 'NDCG': epochNdcgs[f'{i}'] / num} for i in cutoffs]
         table_data = [[f"{i}", f"{epochNdcgs[f'{i}'] / num:.4f}", f"{epochHit[f'{i}'] / num:.4f}"] for i in cutoffs]
         headers = ["Metric", "Epoch NDCG", "Epoch Hit"]
         table = tabulate(table_data, headers=headers, tablefmt="grid")
         print(table)
         with open(os.path.join(self.log_dir, "epoch_metrics.txt"), "a") as f:
             f.write(table)
+        file_path = os.path.join(self.log_dir, "evaluation.csv")
+        with open(file_path, mode='a', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=csv_data[0].keys())
+            if ep == 1:
+                writer.writeheader()
+            for row in csv_data:
+                writer.writerow(row)
             
     def makePrint(self, name, ep, reses, save, metrics):
         ret = 'Epoch %d/%d, %s: ' % (ep, args.epoch, name)
+        csv_data = {'Epoch': ep}
         for metric in reses:
             val = reses[metric]
             ret += '%s = %.4f, ' % (metric, val)
             tem = name + metric
             if save and tem in metrics:
                 metrics[tem].append(val)
+            csv_data.update({metric: val.numpy()} if tf.is_tensor(val) else {metric: val})
         ret = ret[:-2] + '  '
         print(ret)
-
-        # Log to file
-        with open(os.path.join(self.log_dir, "epoch_metrics.txt"), "a") as file:
-            file.write('\n' +ret + '\n')
+        if name == 'Train':
+            with open(os.path.join(self.log_dir, "epoch_metrics.txt"), "a") as file:
+                file.write('\n' +ret + '\n')
+            file_path = os.path.join(self.log_dir, "training.csv")
+            with open(file_path, mode='a', newline='') as file:
+                writer = csv.DictWriter(file, fieldnames=csv_data.keys())
+                if ep == 1:
+                    writer.writeheader()
+                writer.writerow(csv_data)
     
     def save_trainable_parameters_to_file(self, model):
         total_parameters = 0

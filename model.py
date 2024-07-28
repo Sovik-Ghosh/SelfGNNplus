@@ -1,7 +1,7 @@
 import tensorflow as tf
 from Params import args
-from tensorflow.keras.layers import LayerNormalization
-from utils.NNLayers import LSTMNet, TemporalConvNet, TransformerNet, MultiHeadSelfAttention
+from tensorflow.keras.layers import LayerNormalization, Dense, Dropout
+from utils.NNLayers import GRUNet, LSTMNet, TemporalConvNet, TransformerNet, MultiHeadSelfAttention, AdditiveAttention
 
 
 class Model(tf.keras.Model):
@@ -29,12 +29,17 @@ class Model(tf.keras.Model):
         self.fc1 = tf.keras.layers.Dense(args.ssldim, activation='leaky_relu', kernel_regularizer=tf.keras.regularizers.l2(args.reg))
         self.fc2 = tf.keras.layers.Dense(1, activation='sigmoid', kernel_regularizer=tf.keras.regularizers.l2(args.reg))
         
+
+        self.gru0 = GRUNet(hidden_units=self.latdim, dropout = 1 - self.keep_rate)
+        self.gru1 = GRUNet(hidden_units=self.latdim, dropout = 1 - self.keep_rate)
         self.lstm0 = LSTMNet(hidden_units=self.latdim, dropout = 1 - self.keep_rate)
         self.lstm1 = LSTMNet(hidden_units=self.latdim, dropout = 1 - self.keep_rate)
         self.tcn0 = TemporalConvNet([self.latdim, self.latdim], stride=1, kernel_size=3, dropout=self.dropout)
         self.tcn1 = TemporalConvNet([self.latdim, self.latdim], stride=1, kernel_size=3, dropout=self.dropout)
         self.tnet0 = TransformerNet(num_units=args.latdim, num_blocks=3, num_heads=self.num_heads, maxlen=args.pos_length, dropout_rate=self.dropout, pos_fixed=False, l2_reg=args.reg)
         self.tnet1 = TransformerNet(num_units=args.latdim, num_blocks=3, num_heads=self.num_heads, maxlen=args.pos_length, dropout_rate=self.dropout, pos_fixed=False, l2_reg=args.reg)
+        self.additive_attention0 = AdditiveAttention()
+        self.additive_attention1 = AdditiveAttention()
         self.multihead_self_attention0 = MultiHeadSelfAttention(self.latdim, self.num_heads)
         self.multihead_self_attention1 = MultiHeadSelfAttention(self.latdim, self.num_heads)
         self.multihead_self_attention_sequence = [MultiHeadSelfAttention(self.latdim, self.num_heads) for _ in range(args.att_layer)]
@@ -63,15 +68,18 @@ class Model(tf.keras.Model):
         )
         super(Model, self).build(input_shape)
 
-    def message_propagate(self, srclats, mat, type='user'):
+    def message_propagate(self, srclats, mat, type='user', training = False):
         srcNodes = tf.squeeze(tf.slice(mat.indices, [0, 1], [-1, 1]))
         tgtNodes = tf.squeeze(tf.slice(mat.indices, [0, 0], [-1, 1]))
         srcEmbeds = tf.nn.embedding_lookup(srclats, srcNodes)
+        
         lat = tf.pad(tf.math.segment_sum(srcEmbeds, tgtNodes), [[0, 100], [0, 0]])
+
         if type == 'user':
             lat = tf.nn.embedding_lookup(lat, self.users)
         else:
             lat = tf.nn.embedding_lookup(lat, self.items)
+
         return self._activate(lat)
 
     def edge_dropout(self, mat, training):
@@ -94,10 +102,11 @@ class Model(tf.keras.Model):
         for k in range(args.graphNum):
             embs0, embs1 = [self.user_embeddings[k]], [self.item_embeddings[k]]
             for _ in range(self.gnn_layers):
-                a_emb0 = self.message_propagate(embs1[-1], self.edge_dropout(self.subAdj[k], training), 'user')
-                a_emb1 = self.message_propagate(embs0[-1], self.edge_dropout(self.subTpAdj[k], training), 'item')
+                a_emb0 = self.message_propagate(embs1[-1], self.edge_dropout(self.subAdj[k], training), 'user', training = training)
+                a_emb1 = self.message_propagate(embs0[-1], self.edge_dropout(self.subTpAdj[k], training), 'item', training = training)
                 embs0.append(a_emb0 + embs0[-1])
                 embs1.append(a_emb1 + embs1[-1])
+                
             user_vectors.append(tf.add_n(embs0))
             item_vectors.append(tf.add_n(embs1))
 
@@ -107,15 +116,20 @@ class Model(tf.keras.Model):
         user_vector_tensor = tf.transpose(user_vector, perm=[1, 0, 2])
         item_vector_tensor = tf.transpose(item_vector, perm=[1, 0, 2])
 
-        if args.model == 'lstm':
+        if args.model == 'gru':
+            user_vector_tensor = self.gru0(inputs=user_vector_tensor, training = training)
+            item_vector_tensor = self.gru1(inputs=item_vector_tensor, training = training)
+        elif args.model == 'lstm':
             user_vector_tensor = self.lstm0(inputs=user_vector_tensor, training = training)
             item_vector_tensor = self.lstm1(inputs=item_vector_tensor, training = training)
         elif args.model == 'tcn':
             user_vector_tensor = self.tcn0(inputs=user_vector_tensor, training = training)
             item_vector_tensor = self.tcn1(inputs=item_vector_tensor, training = training)
-        else:
+        elif args.model == 'tnet':
             user_vector_tensor = self.tnet0(inputs=user_vector_tensor, training = training)
             item_vector_tensor = self.tnet1(inputs=item_vector_tensor, training = training)
+        else:
+            pass
 
         multihead_user_vector = self.multihead_self_attention0(self.layer_norma0(user_vector_tensor))
         multihead_item_vector = self.multihead_self_attention1(self.layer_norma1(item_vector_tensor))

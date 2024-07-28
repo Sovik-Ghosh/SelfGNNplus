@@ -30,7 +30,6 @@ def parse_args():
 	parser.add_argument('--rank', default=4, type=int, help='embedding size')
 	parser.add_argument('--reg', default=1e-5, type=float, help='weight decay regularizer')
 	parser.add_argument('--sampNum', default=40, type=int, help='batch size for sampling')
-	parser.add_argument('--save_path', default='tem', help='file name to save model and training record')
 	parser.add_argument('--shoot', default=10, type=int, help='K of top k')
 	parser.add_argument('--slot', default=1, type=float, help='length of time slots')
 	parser.add_argument('--ssl', default=True, type=bool, help='use self-supervised learning')

@@ -30,7 +30,7 @@ class Recommender:
         for met in mets:
             self.metrics['Train' + met] = list()
             self.metrics['Test' + met] = list()
-        self.log = TrainingLogger(os.getcwd()+'/'+args.log_dir, vars(args))
+        self.log = TrainingLogger(os.getcwd()+'/logdir/'+args.log_dir, vars(args))
 
     def run(self):
         self.prepareModel()
@@ -38,7 +38,7 @@ class Recommender:
             self.loadModel(args.load_model)
             stloc = len(self.metrics['TrainLoss']) * args.tstEpoch - (args.tstEpoch - 1)
         else:
-            stloc = 0
+            stloc = 1
             # Variables are initialized automatically in TensorFlow 2.x
             print('Variables Initialized')
 
@@ -53,8 +53,8 @@ class Recommender:
             reses = self.trainEpoch()
             self.log.makePrint('Train', ep, reses, test, self.metrics)
             
-            if test:
-                reses = self.testEpoch()
+            if test or ep == 1:
+                reses = self.testEpoch(ep)
                 self.log.makePrint('Test', ep, reses, test, self.metrics)
 
             if ep % args.tstEpoch == 0 and reses['NDCG'] > maxndcg:
@@ -65,7 +65,7 @@ class Recommender:
 
             print()
 
-        reses = self.testEpoch()
+        reses = self.testEpoch(ep)
         self.log.makePrint('Test', args.epoch, reses, True, self.metrics)
         self.log.makePrint('max', maxepoch, maxres, True, self.metrics)
         self.log.print_summary(self.model)
@@ -322,7 +322,7 @@ class Recommender:
 
         return uLocs, iLocs, temTst, tstLocs, sequence, mask, uLocs_seq, val_list
     
-    def testEpoch(self):
+    def testEpoch(self, ep):
         self.cutoffs = [5, 10, 15, 20]
         epochHit = {f'{i}': 0 for i in self.cutoffs}
         epochNdcgs = {f'{i}': 0 for i in self.cutoffs}
@@ -351,7 +351,6 @@ class Recommender:
                         }
 
             preds, ssloss = self.model(inputs)
-            print(num)
 
             if(args.test==True):
                 result = self.calcRes(np.reshape(preds, [ed-st, args.testSize]), temTst, tstLocs)
@@ -368,11 +367,10 @@ class Recommender:
         ret = dict()
         ret['HR'] = epochHit[f'{args.shoot}'] / num
         ret['NDCG'] = epochNdcgs[f'{args.shoot}'] / num
-        self.log.save_and_print_table(epochHit=epochHit, epochNdcgs=epochNdcgs, num=num)
+        self.log.save_and_print_table(epochHit=epochHit, epochNdcgs=epochNdcgs, num=num, ep=ep)
         return ret
     
     def calcRes(self, preds, temTst, tstLocs):
-        print(temTst.shape)
         hits = {cutoff: 0 for cutoff in self.cutoffs}
         ndcgs = {cutoff: 0 for cutoff in self.cutoffs}
 
@@ -399,11 +397,11 @@ class Recommender:
             return
         
         # Save training history
-        with open('History/' + args.save_path + '.pkl', 'wb') as fs:
+        with open('History/' + args.log_dir + '.pkl', 'wb') as fs:
             pickle.dump(self.metrics, fs)
 
         # Save model
-        model_save_path = 'Models/' + args.save_path + '.keras'
+        model_save_path = 'Models/' + args.log_dir + '.keras'
         tf.keras.models.save_model(self.model, model_save_path)
         
         print('Model Saved: %s' % model_save_path)
