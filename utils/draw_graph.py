@@ -68,10 +68,10 @@ def draw_eval(file_paths, name):
             height = 800
         )
 
-        dir_path = f"SelfGNNplus/output/{name}"
+        dir_path = f"../output/{name}"
         create_dir_if_not_exists(dir_path)
         # Save the plot as an SVG file
-        fig.write_image(f"{dir_path}/combined_plot_cutoff_{metric}.svg")
+        fig.write_image(f"{dir_path}/combined_plot_cutoff_{metric}.png")
         fig.show()
 
 def draw_train(file_paths, name):
@@ -103,11 +103,11 @@ def draw_train(file_paths, name):
         width = 2000,
         height = 800
     )
-    dir_path = f"SelfGNNplus/output/{name}"
+    dir_path = f"../output/{name}"
     create_dir_if_not_exists(dir_path)
 
     # Save the plot as an SVG file
-    fig.write_image(f"{dir_path}/loss_plot.svg")
+    fig.write_image(f"{dir_path}/loss_plot.png")
     fig.show()
 
 def create_dir_if_not_exists(directory):
@@ -115,7 +115,7 @@ def create_dir_if_not_exists(directory):
         os.makedirs(directory)
 
 if __name__ == '__main__':
-    eval_file_paths = [
+    '''eval_file_paths = [
         '/home/sovik/SelfGNNplus/logdir/gowalla_gru_64/evaluation.csv',
         '/home/sovik/SelfGNNplus/logdir/gowalla_lstm_64/evaluation.csv',
         '/home/sovik/SelfGNNplus/logdir/gowalla_tcn_64/evaluation.csv'
@@ -161,4 +161,20 @@ if __name__ == '__main__':
     
     
     draw_eval(eval_file_paths, 'yelp')
-    draw_train(train_file_paths, 'yelp')
+    draw_train(train_file_paths, 'yelp')'''
+
+    eval_file_paths = [
+        '/home/sovik/SelfGNNplus/logdir/movielens_gru_64/evaluation.csv',
+        '/home/sovik/SelfGNNplus/logdir/movielens_lstm_64/evaluation.csv',
+        '/home/sovik/SelfGNNplus/logdir/movielens_tcn_64/evaluation.csv'
+    ]
+    
+    train_file_paths = [
+        '/home/sovik/SelfGNNplus/logdir/movielens_gru_64/training.csv',
+        '/home/sovik/SelfGNNplus/logdir/movielens_lstm_64/training.csv',
+        '/home/sovik/SelfGNNplus/logdir/movielens_tcn_64/training.csv'
+    ]
+    
+    
+    draw_eval(eval_file_paths, 'movielens')
+    draw_train(train_file_paths, 'movielens')
