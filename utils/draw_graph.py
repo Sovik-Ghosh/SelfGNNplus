@@ -55,17 +55,38 @@ def draw_eval(file_paths, name):
             max_hitrate_epoch = new_index[metric_data['HitRate'].idxmax()]
             max_ndcg_epoch = new_index[metric_data['NDCG'].idxmax()]
 
-            fig.add_trace(go.Scatter(x=[max_hitrate_epoch], y=[max_hitrate], mode='markers+text', text=[f'Max {max_hitrate:.4f}'], textposition='top right', name=f'Max HitRate {metric} - {os.path.basename(os.path.dirname(file_path))}'))
-            fig.add_trace(go.Scatter(x=[max_ndcg_epoch], y=[max_ndcg], mode='markers+text', text=[f'Max {max_ndcg:.4f}'], textposition='top right', name=f'Max NDCG {metric} - {os.path.basename(os.path.dirname(file_path))}'))
+            fig.add_trace(go.Scatter(x=[max_hitrate_epoch], y=[max_hitrate], mode='markers+text', text=[f'Max {max_hitrate:.4f}'], textfont=dict(size=20), textposition='top left', name=f'Max HitRate {metric} - {os.path.basename(os.path.dirname(file_path))}'))
+            fig.add_trace(go.Scatter(x=[max_ndcg_epoch], y=[max_ndcg], mode='markers+text', text=[f'Max {max_ndcg:.4f}'], textfont=dict(size=20), textposition='top left', name=f'Max NDCG {metric} - {os.path.basename(os.path.dirname(file_path))}'))
 
         # Update the layout
         fig.update_layout(
-            title=f'Metrics: HitRate and NDCG for Cutoff {metric}',
-            xaxis_title='Epoch',
-            yaxis_title='Values',
-            legend_title='Metrics',
-            width = 2000,
-            height = 800
+            title={
+                'text': f'Metrics: HitRate and NDCG for Cutoff {metric}',
+                'font': {'size': 24}  # Title font size
+            },
+            xaxis_title={
+                'text': 'Epoch',
+                'font': {'size': 20}  # X-axis title font size
+            },
+            yaxis_title={
+                'text': 'Values',
+                'font': {'size': 20}  # Y-axis title font size
+            },
+            legend_title={
+                'text': 'Metrics',
+                'font': {'size': 18}  # Legend title font size
+            },
+            legend=dict(
+                font=dict(size=15)  # Legend text font size
+            ),
+            xaxis=dict(
+                tickfont=dict(size=15)  # X-axis tick font size
+            ),
+            yaxis=dict(
+                tickfont=dict(size=15)  # Y-axis tick font size
+            ),
+            width=2000,  # Width of the figure
+            height=800   # Height of the figure
         )
 
         dir_path = f"../output/{name}"
@@ -115,7 +136,7 @@ def create_dir_if_not_exists(directory):
         os.makedirs(directory)
 
 if __name__ == '__main__':
-    '''eval_file_paths = [
+    eval_file_paths = [
         '/home/sovik/SelfGNNplus/logdir/gowalla_gru_64/evaluation.csv',
         '/home/sovik/SelfGNNplus/logdir/gowalla_lstm_64/evaluation.csv',
         '/home/sovik/SelfGNNplus/logdir/gowalla_tcn_64/evaluation.csv'
@@ -129,7 +150,7 @@ if __name__ == '__main__':
     
     
     draw_eval(eval_file_paths, 'gowalla')
-    draw_train(train_file_paths, 'gowalla')
+    #draw_train(train_file_paths, 'gowalla')
 
     eval_file_paths = [
         '/home/sovik/SelfGNNplus/logdir/amazon_gru_64/evaluation.csv',
@@ -145,7 +166,7 @@ if __name__ == '__main__':
     
     
     draw_eval(eval_file_paths, 'amazon')
-    draw_train(train_file_paths, 'amazon')
+    #draw_train(train_file_paths, 'amazon')
 
     eval_file_paths = [
         '/home/sovik/SelfGNNplus/logdir/yelp_gru_64/evaluation.csv',
@@ -161,7 +182,7 @@ if __name__ == '__main__':
     
     
     draw_eval(eval_file_paths, 'yelp')
-    draw_train(train_file_paths, 'yelp')'''
+    #draw_train(train_file_paths, 'yelp')
 
     eval_file_paths = [
         '/home/sovik/SelfGNNplus/logdir/movielens_gru_64/evaluation.csv',
@@ -177,4 +198,61 @@ if __name__ == '__main__':
     
     
     draw_eval(eval_file_paths, 'movielens')
-    draw_train(train_file_paths, 'movielens')
+    #draw_train(train_file_paths, 'movielens')
+    
+    eval_file_paths = [
+        '/home/sovik/SelfGNNplus/logdir/gowalla_64/evaluation.csv',
+        '/home/sovik/SelfGNNplus/logdir/gowalla_tcn_64/evaluation.csv'
+    ]
+    
+    train_file_paths = [
+        '/home/sovik/SelfGNNplus/logdir/gowalla_64/training.csv',
+        '/home/sovik/SelfGNNplus/logdir/gowalla_tcn_64/training.csv'
+    ]
+    
+    
+    draw_eval(eval_file_paths, 'gowallaN')
+    #draw_train(train_file_paths, 'gowallaN')
+
+    eval_file_paths = [
+        '/home/sovik/SelfGNNplus/logdir/amazon_64/evaluation.csv',
+        '/home/sovik/SelfGNNplus/logdir/amazon_tcn_64/evaluation.csv'
+    ]
+    
+    train_file_paths = [
+        '/home/sovik/SelfGNNplus/logdir/amazon_64/training.csv',
+        '/home/sovik/SelfGNNplus/logdir/amazon_tcn_64/training.csv'
+    ]
+    
+    
+    draw_eval(eval_file_paths, 'amazonN')
+    #draw_train(train_file_paths, 'amazonN')
+
+    eval_file_paths = [
+        '/home/sovik/SelfGNNplus/logdir/yelp_64/evaluation.csv',
+        '/home/sovik/SelfGNNplus/logdir/yelp_tcn_64/evaluation.csv'
+    ]
+    
+    train_file_paths = [
+        '/home/sovik/SelfGNNplus/logdir/yelp_64/training.csv',
+        '/home/sovik/SelfGNNplus/logdir/yelp_tcn_64/training.csv'
+    ]
+    
+    
+    draw_eval(eval_file_paths, 'yelpN')
+    #draw_train(train_file_paths, 'yelpN')
+
+    eval_file_paths = [
+        '/home/sovik/SelfGNNplus/logdir/movielens_64/evaluation.csv',
+        '/home/sovik/SelfGNNplus/logdir/movielens_tcn_64/evaluation.csv'
+    ]
+    
+    train_file_paths = [
+        '/home/sovik/SelfGNNplus/logdir/movielens_64/training.csv',
+        '/home/sovik/SelfGNNplus/logdir/movielens_tcn_64/training.csv'
+    ]
+    
+    
+    draw_eval(eval_file_paths, 'movielensN')
+    #draw_train(train_file_paths, 'movielensN')
+
