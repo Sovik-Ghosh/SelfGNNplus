@@ -94,5 +94,4 @@ class TrainingLogger:
         print("Epoch metrics saved to epoch_metrics.txt.")
         self.save_trainable_parameters_to_file(model)
         print("Model parameters saved to model_params.json.")
-        self.save_config()
-        print("Training configuration saved to config.json.")
+        

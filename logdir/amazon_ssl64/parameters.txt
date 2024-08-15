@@ -1,0 +1,160 @@
+Variable: position_embedding, Shape: (200, 64), Total parameters: 12800
+Variable: user_embeddings, Shape: (5, 11199, 64), Total parameters: 3583680
+Variable: item_embeddings, Shape: (5, 30821, 64), Total parameters: 9862720
+Variable: gamma, Shape: (64,), Total parameters: 64
+Variable: beta, Shape: (64,), Total parameters: 64
+Variable: gamma, Shape: (64,), Total parameters: 64
+Variable: beta, Shape: (64,), Total parameters: 64
+Variable: gamma, Shape: (64,), Total parameters: 64
+Variable: beta, Shape: (64,), Total parameters: 64
+Variable: gamma, Shape: (64,), Total parameters: 64
+Variable: beta, Shape: (64,), Total parameters: 64
+Variable: gamma, Shape: (64,), Total parameters: 64
+Variable: beta, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (192, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 1), Total parameters: 64
+Variable: bias, Shape: (1,), Total parameters: 1
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: gamma, Shape: (64,), Total parameters: 64
+Variable: beta, Shape: (64,), Total parameters: 64
+Variable: gamma, Shape: (64,), Total parameters: 64
+Variable: beta, Shape: (64,), Total parameters: 64
+Variable: gamma, Shape: (64,), Total parameters: 64
+Variable: beta, Shape: (64,), Total parameters: 64
+Variable: gamma, Shape: (64,), Total parameters: 64
+Variable: beta, Shape: (64,), Total parameters: 64
+Variable: gamma, Shape: (64,), Total parameters: 64
+Variable: beta, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (192, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 1), Total parameters: 64
+Variable: bias, Shape: (1,), Total parameters: 1
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (64, 64), Total parameters: 4096
+Variable: bias, Shape: (64,), Total parameters: 64
+Total trainable parameters: 13882626

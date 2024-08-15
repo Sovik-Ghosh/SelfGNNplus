@@ -130,58 +130,71 @@ class Model(tf.keras.Model):
             item_vector_tensor = self.tnet1(inputs=item_vector_tensor, training = training)
         else:
             pass
+        
+        if args.long_use:
+            multihead_user_vector = self.multihead_self_attention0(self.layer_norma0(user_vector_tensor))
+            multihead_item_vector = self.multihead_self_attention1(self.layer_norma1(item_vector_tensor))
+            
+            final_user_vector = tf.reduce_mean(multihead_user_vector, axis=1)
+            final_item_vector = tf.reduce_mean(multihead_item_vector, axis=1)
+            
+            sequence_batch = self.layer_norma2(tf.matmul(tf.expand_dims(inputs['mask'], axis=1), tf.nn.embedding_lookup(final_item_vector, tf.cast(inputs['sequence'], tf.int32))))
+            sequence_batch += self.layer_norma3(tf.matmul(tf.expand_dims(inputs['mask'], axis=1), tf.nn.embedding_lookup(self.position_embedding, pos)))
+            att_layer = sequence_batch
+            
+            for i in range(self.att_layers):
+                att_layer1 = self.multihead_self_attention_sequence[i](self.layer_norma4(att_layer))
+                att_layer = self._activate(att_layer1) + att_layer
+            
+            att_user = tf.reduce_sum(att_layer, axis=1)
 
-        multihead_user_vector = self.multihead_self_attention0(self.layer_norma0(user_vector_tensor))
-        multihead_item_vector = self.multihead_self_attention1(self.layer_norma1(item_vector_tensor))
-        
-        final_user_vector = tf.reduce_mean(multihead_user_vector, axis=1)
-        final_item_vector = tf.reduce_mean(multihead_item_vector, axis=1)
-        
-        sequence_batch = self.layer_norma2(tf.matmul(tf.expand_dims(inputs['mask'], axis=1), tf.nn.embedding_lookup(final_item_vector, tf.cast(inputs['sequence'], tf.int32))))
-        sequence_batch += self.layer_norma3(tf.matmul(tf.expand_dims(inputs['mask'], axis=1), tf.nn.embedding_lookup(self.position_embedding, pos)))
-        att_layer = sequence_batch
-        
-        for i in range(self.att_layers):
-            att_layer1 = self.multihead_self_attention_sequence[i](self.layer_norma4(att_layer))
-            att_layer = self._activate(att_layer1) + att_layer
-        
-        att_user = tf.reduce_sum(att_layer, axis=1)
-
-        pckUlat = tf.nn.embedding_lookup(final_user_vector, tf.cast(inputs['uids'], tf.int32))
-        pckIlat = tf.nn.embedding_lookup(final_item_vector, tf.cast(inputs['iids'], tf.int32))
-        
-        preds = tf.reduce_sum(pckUlat * pckIlat, axis=-1)
-        preds += tf.reduce_sum(self._activate(tf.nn.embedding_lookup(att_user, tf.cast(inputs['uLocs_seq'], tf.int32))) * pckIlat, axis=-1)
+            pckUlat = tf.nn.embedding_lookup(final_user_vector, tf.cast(inputs['uids'], tf.int32))
+            pckIlat = tf.nn.embedding_lookup(final_item_vector, tf.cast(inputs['iids'], tf.int32))
+            
+            preds = tf.reduce_sum(pckUlat * pckIlat, axis=-1)
+            preds += tf.reduce_sum(self._activate(tf.nn.embedding_lookup(att_user, tf.cast(inputs['uLocs_seq'], tf.int32))) * pckIlat, axis=-1)
+        else:
+            final_user_vector = tf.reduce_mean(user_vector_tensor, axis=1)
+            final_item_vector = tf.reduce_mean(item_vector_tensor, axis=1)
+            
+            pckUlat = tf.nn.embedding_lookup(final_user_vector, tf.cast(inputs['uids'], tf.int32))
+            pckIlat = tf.nn.embedding_lookup(final_item_vector, tf.cast(inputs['iids'], tf.int32))
+            
+            preds = tf.reduce_sum(pckUlat * pckIlat, axis=-1)
+            preds += tf.reduce_sum(self._activate(tf.nn.embedding_lookup(tf.reduce_sum(user_vector_tensor, axis=1), tf.cast(inputs['uLocs_seq'], tf.int32))) * pckIlat, axis=-1)
+            
         user_weight = []
         preds_one = []
-
-        for i in range(args.graphNum):
-            meta1 = tf.concat([final_user_vector * user_vector[i], final_user_vector, user_vector[i]], axis=-1)
-            meta2 = self.fc1(meta1)
-            meta3 = self.fc2(meta2)
-            user_weight.append(tf.squeeze(meta3))
-        user_weight = tf.stack(user_weight, axis=0)
-
         sslloss = 0
         
-        for i in range(args.graphNum):
-            sampNum = tf.shape(inputs[f'suids{i}'])[0] // 2
-            pckUlat = tf.nn.embedding_lookup(final_user_vector, tf.cast(inputs[f'suids{i}'], tf.int32))
-            pckIlat = tf.nn.embedding_lookup(final_item_vector, tf.cast(inputs[f'siids{i}'], tf.int32))
-            pckUweight = tf.nn.embedding_lookup(user_weight[i], tf.cast(inputs[f'suids{i}'], tf.int32))
+        if args.ssl:
+            for i in range(args.graphNum):
+                meta1 = tf.concat([final_user_vector * user_vector[i], final_user_vector, user_vector[i]], axis=-1)
+                meta2 = self.fc1(meta1)
+                meta3 = self.fc2(meta2)
+                user_weight.append(tf.squeeze(meta3))
+            user_weight = tf.stack(user_weight, axis=0)
+
             
-            S_final = tf.reduce_sum(self._activate(pckUlat * pckIlat), axis=-1)
-            posPred_final = tf.stop_gradient(tf.slice(S_final, [0], [sampNum]))
-            negPred_final = tf.stop_gradient(tf.slice(S_final, [sampNum], [-1]))
-            posweight_final = tf.slice(pckUweight, [0], [sampNum])
-            negweight_final = tf.slice(pckUweight, [sampNum], [-1])
-            S_final = posweight_final * posPred_final - negweight_final * negPred_final
             
-            pckUlat = tf.nn.embedding_lookup(user_vector[i], tf.cast(inputs[f'suids{i}'], tf.int32))
-            pckIlat = tf.nn.embedding_lookup(item_vector[i], tf.cast(inputs[f'siids{i}'], tf.int32))
-            preds_one = tf.reduce_sum(self._activate(pckUlat * pckIlat), axis=-1)
-            posPred = tf.slice(preds_one, [0], [sampNum])
-            negPred = tf.slice(preds_one, [sampNum], [-1])
-            sslloss += tf.reduce_sum(tf.maximum(0.0, 1.0 - S_final * (posPred - negPred)))
+            for i in range(args.graphNum):
+                sampNum = tf.shape(inputs[f'suids{i}'])[0] // 2
+                pckUlat = tf.nn.embedding_lookup(final_user_vector, tf.cast(inputs[f'suids{i}'], tf.int32))
+                pckIlat = tf.nn.embedding_lookup(final_item_vector, tf.cast(inputs[f'siids{i}'], tf.int32))
+                pckUweight = tf.nn.embedding_lookup(user_weight[i], tf.cast(inputs[f'suids{i}'], tf.int32))
+                
+                S_final = tf.reduce_sum(self._activate(pckUlat * pckIlat), axis=-1)
+                posPred_final = tf.stop_gradient(tf.slice(S_final, [0], [sampNum]))
+                negPred_final = tf.stop_gradient(tf.slice(S_final, [sampNum], [-1]))
+                posweight_final = tf.slice(pckUweight, [0], [sampNum])
+                negweight_final = tf.slice(pckUweight, [sampNum], [-1])
+                S_final = posweight_final * posPred_final - negweight_final * negPred_final
+                
+                pckUlat = tf.nn.embedding_lookup(user_vector[i], tf.cast(inputs[f'suids{i}'], tf.int32))
+                pckIlat = tf.nn.embedding_lookup(item_vector[i], tf.cast(inputs[f'siids{i}'], tf.int32))
+                preds_one = tf.reduce_sum(self._activate(pckUlat * pckIlat), axis=-1)
+                posPred = tf.slice(preds_one, [0], [sampNum])
+                negPred = tf.slice(preds_one, [sampNum], [-1])
+                sslloss += tf.reduce_sum(tf.maximum(0.0, 1.0 - S_final * (posPred - negPred)))
         
         return preds, sslloss

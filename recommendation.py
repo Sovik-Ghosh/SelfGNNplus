@@ -46,7 +46,10 @@ class Recommender:
         maxres = {}
         maxepoch = 0
 
+        self.log.save_config()
+        print("Model configuration saved to config.json.")
         self.log.start_training()
+        
 
         for ep in range(stloc, args.epoch):
             test = (ep % args.tstEpoch == 0)

@@ -136,7 +136,7 @@ def create_dir_if_not_exists(directory):
         os.makedirs(directory)
 
 if __name__ == '__main__':
-    eval_file_paths = [
+    '''eval_file_paths = [
         '/home/sovik/SelfGNNplus/logdir/gowalla_gru_64/evaluation.csv',
         '/home/sovik/SelfGNNplus/logdir/gowalla_lstm_64/evaluation.csv',
         '/home/sovik/SelfGNNplus/logdir/gowalla_tcn_64/evaluation.csv'
@@ -255,4 +255,13 @@ if __name__ == '__main__':
     
     draw_eval(eval_file_paths, 'movielensN')
     #draw_train(train_file_paths, 'movielensN')
-
+    eval_file_paths = [
+        '/home/sovik/SelfGNNplus/logdir/amazon_nolong/evaluation.csv',
+        '/home/sovik/SelfGNNplus/logdir/amazon_tcn_64/evaluation.csv'
+    ]
+    draw_eval(eval_file_paths, 'amazon_nolong')'''
+    eval_file_paths = [
+        '/home/sovik/SelfGNNplus/logdir/yelp_nolong/evaluation.csv',
+        '/home/sovik/SelfGNNplus/logdir/yelp_tcn_64/evaluation.csv'
+    ]
+    draw_eval(eval_file_paths, 'yelp_nolong')

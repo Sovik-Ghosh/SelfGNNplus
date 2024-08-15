@@ -1,0 +1,36 @@
+Variable: position_embedding, Shape: (200, 64), Total parameters: 12800
+Variable: user_embeddings, Shape: (3, 48653, 64), Total parameters: 9341376
+Variable: item_embeddings, Shape: (3, 52621, 64), Total parameters: 10103232
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Variable: kernel, Shape: (3, 64, 64), Total parameters: 12288
+Variable: bias, Shape: (64,), Total parameters: 64
+Total trainable parameters: 19655040
