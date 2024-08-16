@@ -261,7 +261,7 @@ if __name__ == '__main__':
     ]
     draw_eval(eval_file_paths, 'amazon_nolong')'''
     eval_file_paths = [
-        '/home/sovik/SelfGNNplus/logdir/yelp_nolong/evaluation.csv',
+        '/home/sovik/SelfGNNplus/logdir/yelp_nossl/evaluation.csv',
         '/home/sovik/SelfGNNplus/logdir/yelp_tcn_64/evaluation.csv'
     ]
-    draw_eval(eval_file_paths, 'yelp_nolong')
+    draw_eval(eval_file_paths, 'yelp_nossl')

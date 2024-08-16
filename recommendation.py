@@ -216,7 +216,9 @@ class Recommender:
         posPred = tf.slice(preds, [0], [sampNum])
         negPred = tf.slice(preds, [sampNum], [-1])
         preLoss = tf.reduce_mean(tf.maximum(0.0, 1.0 - (posPred - negPred)))
-        regLoss = args.reg * self.compute_reg() + args.ssl_reg * sslloss
+        regLoss = args.reg * self.compute_reg()
+        if args.ssl:
+            regLoss += args.ssl_reg * sslloss
         loss = preLoss + regLoss
         return loss, preLoss, regLoss
 
