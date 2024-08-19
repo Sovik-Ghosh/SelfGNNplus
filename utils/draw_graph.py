@@ -115,7 +115,7 @@ def create_dir_if_not_exists(directory):
         os.makedirs(directory)
 
 if __name__ == '__main__':
-    eval_file_paths = [
+    '''eval_file_paths = [
         '/home/sovik/SelfGNNplus/logdir/yelp_64/evaluation.csv',
         '/home/sovik/SelfGNNplus/logdir/yelp_tcn_64/evaluation.csv'
     ]
@@ -131,4 +131,28 @@ if __name__ == '__main__':
         '/home/sovik/SelfGNNplus/logdir/yelp_nossl/evaluation.csv',
         '/home/sovik/SelfGNNplus/logdir/yelp_tcn_64/evaluation.csv'
     ]
-    draw_eval(eval_file_paths, 'yelp_nossl')
+    draw_eval(eval_file_paths, 'yelp_nossl')'''
+    eval_file_paths = [
+        '/home/sovik/SelfGNNplus/logdir/yelp_gru_64/evaluation.csv',
+        '/home/sovik/SelfGNNplus/logdir/yelp_tcn_64/evaluation.csv',
+        '/home/sovik/SelfGNNplus/logdir/yelp_lstm_64/evaluation.csv'
+    ]
+    draw_eval(eval_file_paths, 'yelp')
+    eval_file_paths = [
+        '/home/sovik/SelfGNNplus/logdir/amazon_gru_64/evaluation.csv',
+        '/home/sovik/SelfGNNplus/logdir/amazon_tcn_64/evaluation.csv',
+        '/home/sovik/SelfGNNplus/logdir/amazon_lstm_64/evaluation.csv'
+    ]
+    draw_eval(eval_file_paths, 'amazon')
+    eval_file_paths = [
+        '/home/sovik/SelfGNNplus/logdir/gowalla_gru_64/evaluation.csv',
+        '/home/sovik/SelfGNNplus/logdir/gowalla_tcn_64/evaluation.csv',
+        '/home/sovik/SelfGNNplus/logdir/gowalla_lstm_64/evaluation.csv'
+    ]
+    draw_eval(eval_file_paths, 'gowalla')
+    eval_file_paths = [
+        '/home/sovik/SelfGNNplus/logdir/movielens_gru_64/evaluation.csv',
+        '/home/sovik/SelfGNNplus/logdir/movielens_tcn_64/evaluation.csv',
+        '/home/sovik/SelfGNNplus/logdir/movielens_lstm_64/evaluation.csv'
+    ]
+    draw_eval(eval_file_paths, 'movielens')
