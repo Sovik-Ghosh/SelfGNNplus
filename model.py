@@ -116,27 +116,33 @@ class Model(tf.keras.Model):
         user_vector_tensor = tf.transpose(user_vector, perm=[1, 0, 2])
         item_vector_tensor = tf.transpose(item_vector, perm=[1, 0, 2])
 
-        if args.model == 'gru':
-            user_vector_tensor = self.gru0(inputs=user_vector_tensor, training = training)
-            item_vector_tensor = self.gru1(inputs=item_vector_tensor, training = training)
-        elif args.model == 'lstm':
-            user_vector_tensor = self.lstm0(inputs=user_vector_tensor, training = training)
-            item_vector_tensor = self.lstm1(inputs=item_vector_tensor, training = training)
-        elif args.model == 'tcn':
-            user_vector_tensor = self.tcn0(inputs=user_vector_tensor, training = training)
-            item_vector_tensor = self.tcn1(inputs=item_vector_tensor, training = training)
-        elif args.model == 'tnet':
-            user_vector_tensor = self.tnet0(inputs=user_vector_tensor, training = training)
-            item_vector_tensor = self.tnet1(inputs=item_vector_tensor, training = training)
-        else:
-            pass
-        
-        if args.long_use:
+        if args.model is not None:
+
+            if args.model == 'gru':
+                user_vector_tensor = self.gru0(inputs=user_vector_tensor, training = training)
+                item_vector_tensor = self.gru1(inputs=item_vector_tensor, training = training)
+            if args.model == 'lstm':
+                user_vector_tensor = self.lstm0(inputs=user_vector_tensor, training = training)
+                item_vector_tensor = self.lstm1(inputs=item_vector_tensor, training = training)
+            if args.model == 'tcn':
+                user_vector_tensor = self.tcn0(inputs=user_vector_tensor, training = training)
+                item_vector_tensor = self.tcn1(inputs=item_vector_tensor, training = training)
+            if args.model == 'tnet':
+                user_vector_tensor = self.tnet0(inputs=user_vector_tensor, training = training)
+                item_vector_tensor = self.tnet1(inputs=item_vector_tensor, training = training)
+
             multihead_user_vector = self.multihead_self_attention0(self.layer_norma0(user_vector_tensor))
             multihead_item_vector = self.multihead_self_attention1(self.layer_norma1(item_vector_tensor))
             
             final_user_vector = tf.reduce_mean(multihead_user_vector, axis=1)
             final_item_vector = tf.reduce_mean(multihead_item_vector, axis=1)
+        
+        else:
+            final_user_vector = tf.reduce_mean(user_vector_tensor, axis=1)
+            final_item_vector = tf.reduce_mean(item_vector_tensor, axis=1)
+
+        
+        if args.long_use:
             
             sequence_batch = self.layer_norma2(tf.matmul(tf.expand_dims(inputs['mask'], axis=1), tf.nn.embedding_lookup(final_item_vector, tf.cast(inputs['sequence'], tf.int32))))
             sequence_batch += self.layer_norma3(tf.matmul(tf.expand_dims(inputs['mask'], axis=1), tf.nn.embedding_lookup(self.position_embedding, pos)))
@@ -147,21 +153,14 @@ class Model(tf.keras.Model):
                 att_layer = self._activate(att_layer1) + att_layer
             
             att_user = tf.reduce_sum(att_layer, axis=1)
-
-            pckUlat = tf.nn.embedding_lookup(final_user_vector, tf.cast(inputs['uids'], tf.int32))
-            pckIlat = tf.nn.embedding_lookup(final_item_vector, tf.cast(inputs['iids'], tf.int32))
-            
-            preds = tf.reduce_sum(pckUlat * pckIlat, axis=-1)
-            preds += tf.reduce_sum(self._activate(tf.nn.embedding_lookup(att_user, tf.cast(inputs['uLocs_seq'], tf.int32))) * pckIlat, axis=-1)
         else:
-            final_user_vector = tf.reduce_mean(user_vector_tensor, axis=1)
-            final_item_vector = tf.reduce_mean(item_vector_tensor, axis=1)
-            
-            pckUlat = tf.nn.embedding_lookup(final_user_vector, tf.cast(inputs['uids'], tf.int32))
-            pckIlat = tf.nn.embedding_lookup(final_item_vector, tf.cast(inputs['iids'], tf.int32))
-            
-            preds = tf.reduce_sum(pckUlat * pckIlat, axis=-1)
-            preds += tf.reduce_sum(self._activate(tf.nn.embedding_lookup(tf.reduce_sum(user_vector_tensor, axis=1), tf.cast(inputs['uLocs_seq'], tf.int32))) * pckIlat, axis=-1)
+            att_user = tf.reduce_sum(user_vector_tensor, axis=1)
+        
+        pckUlat = tf.nn.embedding_lookup(final_user_vector, tf.cast(inputs['uids'], tf.int32))
+        pckIlat = tf.nn.embedding_lookup(final_item_vector, tf.cast(inputs['iids'], tf.int32))
+        
+        preds = tf.reduce_sum(pckUlat * pckIlat, axis=-1)
+        preds += tf.reduce_sum(self._activate(tf.nn.embedding_lookup(att_user, tf.cast(inputs['uLocs_seq'], tf.int32))) * pckIlat, axis=-1)
             
         user_weight = []
         preds_one = []
@@ -174,9 +173,6 @@ class Model(tf.keras.Model):
                 meta3 = self.fc2(meta2)
                 user_weight.append(tf.squeeze(meta3))
             user_weight = tf.stack(user_weight, axis=0)
-
-            
-            
             for i in range(args.graphNum):
                 sampNum = tf.shape(inputs[f'suids{i}'])[0] // 2
                 pckUlat = tf.nn.embedding_lookup(final_user_vector, tf.cast(inputs[f'suids{i}'], tf.int32))

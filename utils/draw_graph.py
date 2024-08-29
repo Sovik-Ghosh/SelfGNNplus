@@ -114,6 +114,83 @@ def create_dir_if_not_exists(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
+def cap_name(name):
+    n = name[21:23]
+    if n=='5.':
+        return 'Cutoff-5'
+    elif n=='10':
+        return 'Cutoff-10'
+    elif n=='15':
+        return 'Cutoff-15'
+    elif n=='20':
+        return 'Cutoff-20'
+    else:
+        return None
+
+def escape_latex(text):
+    """Escapes special LaTeX characters in the text."""
+    # Dictionary of replacements to be applied from left to right
+    replacements = {
+        '\\': r'\textbackslash{}',
+        '{': r'\{',
+        '}': r'\}',
+        '_': r'\_',
+        '^': r'\^',
+        '&': r'\&',
+        '%': r'\%',
+        '$': r'\$',
+        '~': r'\~{}',
+        '#': r'\#'
+    }
+    
+    # Perform replacements in order to avoid issues with already escaped text
+    for search, replace in replacements.items():
+        text = text.replace(search, replace)
+    
+    return text
+
+def generate_latex_for_images(image_folder, output_tex_file):
+    with open(output_tex_file, 'w') as tex_file:
+        tex_file.write("\\appendix\n")
+        tex_file.write("\\section{Appendix: Additional Figures}\n\n")
+
+        # Iterate over each subdirectory in the specified image_folder
+        for subdir in os.listdir(image_folder):
+            subdir_path = os.path.join(image_folder, subdir)
+
+            if os.path.isdir(subdir_path):
+                # Get a list of all files in the subdirectory
+                images = [f for f in os.listdir(subdir_path) if os.path.isfile(os.path.join(subdir_path, f))]
+
+                # Filter only image files
+                image_extensions = ['.png', '.jpg', '.jpeg', '.pdf', '.svg']
+                images = [img for img in images if os.path.splitext(img)[1].lower() in image_extensions]
+
+                if images:
+                    tex_file.write(f"\\section{{Figures from {escape_latex(subdir)}}}\n\n")
+                    tex_file.write("\\begin{figure}[H]\n")
+                    tex_file.write("    \\centering\n")
+
+                    # Define the width for subfigures
+                    num_images = len(images)
+                    width = 0.45
+
+                    for img in images:
+                        # Remove extension for label
+
+                        name = cap_name(img)
+                        if name is None:
+                            continue
+                        label = os.path.splitext(img)[0].replace(' ', '_')
+                        tex_file.write(f"    \\subfigure[{name}]{{\n")
+                        tex_file.write(f"        \\includegraphics[width={width:.2f}\\textwidth]{{output/{subdir}/{img}}}\n")
+                        tex_file.write(f"        \\label{{fig:{label}}}\n")
+                        tex_file.write("    }\n")
+
+                    tex_file.write("\\end{figure}\n\n")
+
+    print(f"LaTeX code written to {output_tex_file}")
+
 if __name__ == '__main__':
     '''eval_file_paths = [
         '/home/sovik/SelfGNNplus/logdir/yelp_64/evaluation.csv',
@@ -131,7 +208,7 @@ if __name__ == '__main__':
         '/home/sovik/SelfGNNplus/logdir/yelp_nossl/evaluation.csv',
         '/home/sovik/SelfGNNplus/logdir/yelp_tcn_64/evaluation.csv'
     ]
-    draw_eval(eval_file_paths, 'yelp_nossl')'''
+    draw_eval(eval_file_paths, 'yelp_nossl')
     eval_file_paths = [
         '/home/sovik/SelfGNNplus/logdir/yelp_gru_64/evaluation.csv',
         '/home/sovik/SelfGNNplus/logdir/yelp_tcn_64/evaluation.csv',
@@ -149,10 +226,18 @@ if __name__ == '__main__':
         '/home/sovik/SelfGNNplus/logdir/gowalla_tcn_64/evaluation.csv',
         '/home/sovik/SelfGNNplus/logdir/gowalla_lstm_64/evaluation.csv'
     ]
-    draw_eval(eval_file_paths, 'gowalla')
+    draw_eval(eval_file_paths, 'gowalla')'''
     eval_file_paths = [
-        '/home/sovik/SelfGNNplus/logdir/movielens_gru_64/evaluation.csv',
-        '/home/sovik/SelfGNNplus/logdir/movielens_tcn_64/evaluation.csv',
-        '/home/sovik/SelfGNNplus/logdir/movielens_lstm_64/evaluation.csv'
+        '/home/sovik/SelfGNNplus/logdir/amazon_none/evaluation.csv',
+        '/home/sovik/SelfGNNplus/logdir/amazon_tcn_64/evaluation.csv',
     ]
-    draw_eval(eval_file_paths, 'movielens')
+    draw_eval(eval_file_paths, 'amazon_none')
+
+
+
+    # Specify the folder where your images are stored and the output .tex file name
+    #image_folder = '/home/sovik/SelfGNNplus/output'
+    #output_tex_file = 'generated_appendix.tex'
+
+    
+    #generate_latex_for_images(image_folder, output_tex_file)
