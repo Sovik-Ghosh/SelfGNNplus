@@ -55,7 +55,7 @@ You are welcome to modify the preprocessing code as needed to suit your data.
 
 ## 🚀 Examples to run the codes
 
-You need to create the `./History/` and the `./Models/` directories. The command to train SA-GNN on the Gowalla/MovieLens/Amazon/Yelp dataset is as follows.
+You need to create the `./History/` and the `./Models/` directories. The command to train SelfGNNplus on the Gowalla/MovieLens/Amazon/Yelp dataset is as follows.
 
 - Gowalla
 
